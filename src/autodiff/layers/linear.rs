@@ -66,7 +66,7 @@ impl<const IN: usize, const OUT: usize, const NUMEL: usize> Module<Vector<IN>>
     type Context = Vector<IN>;
 
     fn forward(&self, x: Vector<IN>) -> (Self::Output, Self::Context) {
-        let result = self.weights.multiply(&x) + self.bias;
+        let result = self.weights.multiply_unchecked(&x) + self.bias;
         (result, x)
     }
 
@@ -76,11 +76,22 @@ impl<const IN: usize, const OUT: usize, const NUMEL: usize> Module<Vector<IN>>
         ctx: &Self::Context,
     ) -> (Vector<IN>, Self::Gradients) {
         let x = ctx;
-        let data_grad = self.weights.transposed().multiply(&grad_out);
+        let data_grad = self.weights.transposed().multiply_unchecked(&grad_out);
         let mut weights_grads = Tensor::<OUT, IN, NUMEL>::zeroed();
         for i in 0..OUT {
             for j in 0..IN {
-                weights_grads[(i, j)] = grad_out[i] * x[j];
+                // `[]` (Index/IndexMut) passe par l'indexation de tableau du
+                // langage -- verifiee inconditionnellement, meme en release,
+                // contrairement a `get`/`set` (debug_assert, compile a rien
+                // en release). i<OUT, j<IN sont les memes bornes de boucle,
+                // sain par construction.
+                unsafe {
+                    weights_grads.set_unchecked(
+                        i,
+                        j,
+                        grad_out.get_unchecked(i, 0) * x.get_unchecked(j, 0),
+                    );
+                }
             }
         }
         (
