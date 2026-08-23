@@ -11,7 +11,7 @@ pub mod layers;
 pub mod loss;
 pub mod optim;
 
-pub use self::core::{FlatGrads, Module, Params, Perturb, Then, Update};
+pub use self::core::{FlatGrads, Module, Perturb, Then, Update};
 pub use grad_check::GradChecker;
 pub use layers::{LeakyReLU, Linear, ReLU, Sigmoid, Softmax, Tanh};
 pub use loss::{cross_entropy, mae, mse};
