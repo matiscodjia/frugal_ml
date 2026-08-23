@@ -271,6 +271,32 @@ impl<const ROWS: usize, const COLS: usize, const NUMEL: usize, S: Storage<[Scala
         }
         result
     }
+
+    /// Identique a `multiply`, seule la methode d'acces change (`get_unchecked`/
+    /// `set_unchecked` au lieu de `get`/`set`) -- isole cette seule variable
+    /// pour comparer avec `multiply` a structure de boucle egale. Sain par
+    /// construction : `i<ROWS`, `j<P`, `k<COLS` sont les memes bornes que
+    /// celles utilisees par `get`/`set` eux-memes, garanties par les
+    /// generiques de types plutot que verifiees a l'execution.
+    ///
+    /// # Safety
+    /// Toujours sur : les boucles ne generent jamais d'indice hors bornes.
+    pub fn multiply_unchecked<const P: usize, const NUMEL_B: usize, const NUMEL_C: usize>(
+        &self,
+        other: &Tensor<COLS, P, NUMEL_B>,
+    ) -> Tensor<ROWS, P, NUMEL_C> {
+        let mut result = Tensor::<ROWS, P, NUMEL_C>::zeroed();
+        for i in 0..ROWS {
+            for j in 0..P {
+                let mut sum: Scalar = 0.0;
+                for k in 0..COLS {
+                    sum += unsafe { self.get_unchecked(i, k) * other.get_unchecked(k, j) };
+                }
+                unsafe { result.set_unchecked(i, j, sum) };
+            }
+        }
+        result
+    }
 }
 
 impl<const SIZE: usize, const NUMEL: usize, S: Storage<[Scalar; NUMEL]>>
