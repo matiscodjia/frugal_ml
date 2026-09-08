@@ -1,186 +1,53 @@
-//! Where a container's elements actually live.
-//!
-//! The compute core (`get`, `set`, contractions, views) is written against
-//! [`Storage`], never against `Box` or a concrete array: the storage location
-//! becomes an instantiation parameter. The default stays the stack, so a
-//! target with no allocator pays nothing and existing code doesn't change.
-
+//Spécification du code storage
+// N'hesite pas si ma réponse n'est pas précise à rester dessus pour soit me
+//redemander de réfléchir plus ou me donner un indice, mais ne sois pas complaisant avec moi
+//a) Le trait doit être implémenté pour Scalar lui-même et pour [B; N] où B implémente déjà le trait. Pourquoi cette construction par récurrence plutôt qu'un simple impl<const N: usize> Buffer for [Scalar; N] ? Qu'est-ce que la version récursive te permet d'écrire que l'autre ne permet pas ?
+//Reponse a : Pour facilement composer des buffers de buffers, donc des tableaux de tableau
+//directement en buffer.
+//
+//n)Le trait a besoin d'exposer une vue à plat, &[Scalar], sur un buffer qui peut être imbriqué ([[Scalar; 4]; 3]). Quelle opération vas-tu devoir faire pour obtenir cette tranche, et pourquoi le compilateur ne peut-il pas la valider tout seul ?
+//Réponse b: Il va falloir que j'établisse un pointer directement sur le tableau 2D qui en mémoire est déjà un
+//tableau 1D. Le compilateur ne peut plus valider quand le tableau s'arrête si on lit directement
+//en mémoire sans const generiques.
+//c) De (b) découle que le trait sera unsafe. Formule l'invariant : qu'est-ce que celui qui écrit un impl Buffer promet exactement ? Deux propriétés, l'une sur la disposition mémoire, l'autre sur une valeur particulière.
+//Invariant : On ne doit jamais lire au dela de la valeur du nombres d'elements qu'il y a dans le
+//tenseur. On avance toujours d'un pas de f32 en mémoire soit 4 bytes.
+//
+//Réponse a améliorée: effectivement il faut implémenter un buffer pour tous les types de structs
+//(une infinité théorique sur les tailles). La composition récursive permet d'écrire des tableau de
+//buffers ce qui par définition même en fait aussi des buffers donc la propriété est stable par
+//compositon - Validée
+//
+//Réponse b améliorée : Il y a apparemment std slice qui renvoie un iterateur mais c'est std; nous
+//sommes en no_std donc on est obligé d'utiliser un raw pointer.
+//
+//Réponse c: Dans une struct l'alignement peut casser cette structure. L'utilisateur doit promettre
+//un alignement constant quelque soit la struct qui implémente buffer et pour la seconde valeur je
+//ne sais pas. Scalar doit être nullable en tant que struct. ça peut preter à confusion parce que
+//Scalar est un type alias de f32.
+//
+//Réponse b améliorée: Le compilateur ne sait pas en fonction de la struct s'il y a du padding
+//d'alignement. DOnc au moment du déréférencement ou de l'intialisation du pointer, on risque de lire des valeurs corrompues (bits de padding) - Validée
+//Réponse c améliorée:  L'auteur doit garantir  que le type qui implemente buffer peut être
+//zeroable. Un type est zeroable si le motif binaire 0...000 est une représentation légale d'une de
+//ses valeurs. Invariant : Pas de padding LEN scalaires strictements contigues et Zeroable le motif
+//tout-zero est une valeur B valide - Validée
+//
+// Safety: Lorsqu'on manipule les types il faut vérifier deux choses à l'implémentation du trait buffer.
+// L'utilisateur doit garantir l'absence de padding que le compilateur ne sait pas détecter.
+// L'utilisateur doit garantir que le type qui implémente le trait est zeroable et que le motif
+// 0..00 est un motif légal. Ce qui permet d'initialiser un buffer à zéro
+//
+//
 use crate::scalar::Scalar;
-use core::ops::{Deref, DerefMut};
-
-/// A contiguous block of `LEN` scalars, of a size known at compile time.
-///
-/// Generic over the *buffer type* rather than a plain `NUMEL`: this covers
-/// both `[Scalar; N]` and nested arrays (`[[Scalar; C]; R]`), so there is
-/// a single storage mechanism for the whole crate.
-///
-/// # Safety
-///
-/// The implementer guarantees that its memory representation is exactly
-/// `LEN` contiguous scalars with no padding, and that the all-zero bit
-/// pattern is a valid value. This is what licenses
-/// [`as_flat`](Buffer::as_flat) and `HeapStorage`'s zero-initialized
-/// allocation.
-pub unsafe trait Buffer: Sized {
-    /// Number of scalars in the buffer, across every rank.
+use core::slice::from_raw_parts;
+pub unsafe trait Buffer {
     const LEN: usize;
-
-    /// Builds a zeroed buffer *in place*, so on the caller's stack.
-    /// Reserved for `StackStorage`: heap storage must never go through this.
-    fn zeroed_inline() -> Self;
-
     fn as_flat(&self) -> &[Scalar];
     fn as_flat_mut(&mut self) -> &mut [Scalar];
+    fn zeroed_inline() -> Self;
 }
-
-// SAFETY: a scalar is one contiguous scalar, and 0.0 is a valid value.
-unsafe impl Buffer for Scalar {
-    const LEN: usize = 1;
-
-    fn zeroed_inline() -> Self {
-        0.0
-    }
-    fn as_flat(&self) -> &[Scalar] {
-        core::slice::from_ref(self)
-    }
-    fn as_flat_mut(&mut self) -> &mut [Scalar] {
-        core::slice::from_mut(self)
-    }
-}
-
-// SAFETY: an array is the contiguous juxtaposition of its elements, no
-// padding. By induction on the base impl, `[B; N]` is therefore
-// `N * B::LEN` contiguous scalars, and the all-zero pattern stays valid.
-unsafe impl<B: Buffer, const N: usize> Buffer for [B; N] {
-    const LEN: usize = N * B::LEN;
-
-    fn zeroed_inline() -> Self {
-        core::array::from_fn(|_| B::zeroed_inline())
-    }
-    fn as_flat(&self) -> &[Scalar] {
-        // SAFETY: see the trait invariant: `Self::LEN` contiguous scalars
-        // starting at the array's address, living as long as `self` does.
-        unsafe { core::slice::from_raw_parts(self.as_ptr() as *const Scalar, Self::LEN) }
-    }
-    fn as_flat_mut(&mut self) -> &mut [Scalar] {
-        // SAFETY: same as above, and the exclusive borrow of `self` rules
-        // out any alias.
-        unsafe { core::slice::from_raw_parts_mut(self.as_mut_ptr() as *mut Scalar, Self::LEN) }
-    }
-}
-
-/// Access to the buffer, wherever it happens to live.
-///
-/// Imposes nothing about ownership: that's what leaves room for a future
-/// borrowed storage (a buffer placed in `.bss` or external RAM, no
-/// allocator).
-pub trait Storage<B: Buffer>: Deref<Target = B> + DerefMut {}
-
-/// Owned storage, so constructible out of nothing.
-///
-/// Only `new()` requires it; `get`, `set`, views, and contractions only
-/// need [`Storage`].
-pub trait OwnedStorage<B: Buffer>: Storage<B> {
-    fn zeroed() -> Self;
-}
-
-/// `load_slice` error: the supplied length doesn't match `NUMEL`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LenMismatch;
-
-/// The buffer lives inline in the struct, so on the stack if the value
-/// itself is owned. No dependency on `alloc`: this is the storage for the
-/// edge target, and the default for every container.
-#[derive(Clone, Copy, Debug)]
-pub struct StackStorage<B: Buffer>(B);
-
-impl<B: Buffer> Deref for StackStorage<B> {
-    type Target = B;
-    fn deref(&self) -> &B {
-        &self.0
-    }
-}
-
-impl<B: Buffer> DerefMut for StackStorage<B> {
-    fn deref_mut(&mut self) -> &mut B {
-        &mut self.0
-    }
-}
-
-impl<B: Buffer> Storage<B> for StackStorage<B> {}
-
-impl<B: Buffer> OwnedStorage<B> for StackStorage<B> {
-    fn zeroed() -> Self {
-        Self(B::zeroed_inline())
-    }
-}
-
-#[cfg(feature = "alloc")]
-pub use heap::HeapStorage;
-
-#[cfg(feature = "alloc")]
-mod heap {
-    use super::{Buffer, OwnedStorage, Storage};
-    use alloc::alloc::{alloc_zeroed, handle_alloc_error, Layout};
-    use alloc::boxed::Box;
-    use core::ops::{Deref, DerefMut};
-
-    /// The buffer lives on the heap. A benchmark probe: lets us measure
-    /// scaling on tensors the stack cannot carry. Disappears with the
-    /// `alloc` feature, without the core changing by a single line.
-    #[derive(Debug)]
-    pub struct HeapStorage<B: Buffer>(Box<B>);
-
-    impl<B: Buffer> Deref for HeapStorage<B> {
-        type Target = B;
-        fn deref(&self) -> &B {
-            &self.0
-        }
-    }
-
-    impl<B: Buffer> DerefMut for HeapStorage<B> {
-        fn deref_mut(&mut self) -> &mut B {
-            &mut self.0
-        }
-    }
-
-    impl<B: Buffer> Storage<B> for HeapStorage<B> {}
-
-    impl<B: Buffer> OwnedStorage<B> for HeapStorage<B> {
-        /// Allocates directly zero-initialized.
-        ///
-        /// Critical point: never go through an intermediate `B`
-        /// (`Box::new(B::zeroed_inline())` would build the buffer on the
-        /// stack before moving it, reintroducing the very overflow this
-        /// is meant to fix).
-        fn zeroed() -> Self {
-            let layout = Layout::new::<B>();
-            if layout.size() == 0 {
-                // `alloc_zeroed` forbids a zero size; an empty buffer is a
-                // ZST, a non-null aligned pointer is enough.
-                // SAFETY: aligned, non-null pointer, zero size: the valid
-                // representation of an owned ZST.
-                return Self(unsafe { Box::from_raw(core::ptr::NonNull::dangling().as_ptr()) });
-            }
-            // SAFETY: non-zero size (checked above); `Buffer`'s invariant
-            // guarantees the all-zero pattern is a valid `B`, so the
-            // returned memory is immediately initialized.
-            let ptr = unsafe { alloc_zeroed(layout) } as *mut B;
-            if ptr.is_null() {
-                handle_alloc_error(layout);
-            }
-            // SAFETY: `ptr` comes from the global allocator with `B`'s
-            // layout, and points at a valid `B`: `Box` can take ownership.
-            Self(unsafe { Box::from_raw(ptr) })
-        }
-    }
-
-    impl<B: Buffer> Clone for HeapStorage<B> {
-        /// Heap-to-heap copy, no stack temporary.
-        fn clone(&self) -> Self {
-            let mut copy = <Self as OwnedStorage<B>>::zeroed();
-            copy.as_flat_mut().copy_from_slice(self.as_flat());
-            copy
-        }
-    }
-}
+//Fin de séance :
+//Résumé
+//Difficultés à travailler : tu vas trop vite sur la syntaxe avant d'avoir figé le concept — plusieurs allers-retours (as_flat, as_flat_mut, zeroed) où une forme correcte que tu venais d'établir a été réécrite fausse juste après, signe que la solution n'était pas encore internalisée mais recopiée dans l'instant. Tu confonds encore par endroits les couches du langage : trait vs type concret (self::Buffer au lieu de Self), pointeur brut vs référence vs slice (empilage de *const, &, [T] alors qu'une seule couche suffit), et méthode vs constante associée (une méthode ne peut pas exposer une valeur connue au niveau du type). Sur le fond conceptuel, tu esquives parfois la question posée pour répondre à une question voisine plus confortable (b) sur le padding répondu en "std vs no_std", c) sur zeroable répondu en "reroable" flou) — à surveiller particulièrement, car c'est le signe le plus fiable que le concept n'est pas encore acquis.
+//Qualités sur lesquelles t'appuyer : ta première réponse sur la récursivité du buffer (stabilité par composition) était juste et bien formulée du premier coup, sans aide. Tu corriges vite et proprement une fois l'indice donné — la trajectoire as_flat → as_flat_mut a montré que tu retiens la correction précédente pour l'appliquer par analogie, même si l'erreur "self au lieu de &mut self" est repassée une fois. Tu ne fais pas semblant de comprendre : tu dis explicitement "vraiment pas sûr" ou "je ne sais pas" plutôt que de bluffer, ce qui est la condition nécessaire pour que ce mode d'apprentissage fonctionne.
