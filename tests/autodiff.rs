@@ -14,16 +14,16 @@ use frugal_ml::Scalar;
 fn test_integration_vector_tensor() {
     let v = Vector::from_data([1.0, 2.0]);
     assert_eq!(v.dim(), 2);
-    let m = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let m = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     assert_eq!(m.rows(), 2);
 }
 
 #[test]
 fn test_mlp_training_step() {
     let mut network = seq!(
-        Linear::<2, 4, 8>::from_seed(42),
+        Linear::<2, 4>::from_seed(42),
         ReLU::<4> {},
-        Linear::<4, 1, 4>::from_seed(137)
+        Linear::<4, 1>::from_seed(137)
     );
     let input = Vector::from_data([1.0, 0.5]);
     let target = Vector::from_data([1.0]);
@@ -50,9 +50,9 @@ fn test_convergence() {
     ];
 
     let mut network = seq!(
-        Linear::<2, 8, 16>::from_seed(42),
+        Linear::<2, 8>::from_seed(42),
         Tanh::<8> {},
-        Linear::<8, 1, 8>::from_seed(137)
+        Linear::<8, 1>::from_seed(137)
     );
 
     let mut opt = Sgd::new(0.05);
@@ -115,9 +115,9 @@ fn test_classifier() {
     ];
 
     let mut network = seq!(
-        Linear::<4, 8, 32>::from_seed(42),
+        Linear::<4, 8>::from_seed(42),
         Tanh::<8> {},
-        Linear::<8, 3, 24>::from_seed(137),
+        Linear::<8, 3>::from_seed(137),
         Softmax::<3> {}
     );
 
@@ -190,9 +190,9 @@ fn test_iris() {
     }
 
     let mut network = seq!(
-        Linear::<4, 16, 64>::from_seed(42),
+        Linear::<4, 16>::from_seed(42),
         Tanh::<16> {},
-        Linear::<16, 3, 48>::from_seed(137),
+        Linear::<16, 3>::from_seed(137),
         Softmax::<3> {}
     );
 
@@ -252,16 +252,16 @@ fn bench_autodiff() {
     let target = Vector::from_data([1.0]);
 
     let mut net_s = seq!(
-        Linear::<2, 4, 8>::from_seed(42),
+        Linear::<2, 4>::from_seed(42),
         Tanh::<4> {},
-        Linear::<4, 1, 4>::from_seed(99)
+        Linear::<4, 1>::from_seed(99)
     );
     let mut net_m = seq!(
-        Linear::<2, 8, 16>::from_seed(42),
+        Linear::<2, 8>::from_seed(42),
         Tanh::<8> {},
-        Linear::<8, 4, 32>::from_seed(99),
+        Linear::<8, 4>::from_seed(99),
         Tanh::<4> {},
-        Linear::<4, 1, 4>::from_seed(7)
+        Linear::<4, 1>::from_seed(7)
     );
 
     let n = 10_000u32;

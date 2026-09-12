@@ -11,7 +11,7 @@ use frugal_ml::Scalar;
 
 #[test]
 fn seq_2_layers_forward_backward() {
-    let net = seq!(Linear::<2, 4, 8>::from_seed(42), ReLU::<4> {});
+    let net = seq!(Linear::<2, 4>::from_seed(42), ReLU::<4> {});
     let input = Vector::from_data([1.0, 0.5]);
     let (output, ctx) = net.forward(input);
     let _ = net.backward(output, &ctx);
@@ -20,9 +20,9 @@ fn seq_2_layers_forward_backward() {
 #[test]
 fn seq_3_layers_loss() {
     let net = seq!(
-        Linear::<2, 4, 8>::from_seed(42),
+        Linear::<2, 4>::from_seed(42),
         Tanh::<4> {},
-        Linear::<4, 1, 4>::from_seed(99)
+        Linear::<4, 1>::from_seed(99)
     );
     let input = Vector::from_data([1.0, 0.5]);
     let target = Vector::from_data([1.0]);
@@ -33,7 +33,7 @@ fn seq_3_layers_loss() {
 
 #[test]
 fn seq_single_layer() {
-    let net = seq!(Linear::<3, 2, 6>::from_seed(7));
+    let net = seq!(Linear::<3, 2>::from_seed(7));
     let input = Vector::from_data([1.0, 0.0, -1.0]);
     let (output, ctx) = net.forward(input);
     let _ = net.backward(output, &ctx);
@@ -42,9 +42,9 @@ fn seq_single_layer() {
 #[test]
 fn seq_training_step_decreases_loss() {
     let mut net = seq!(
-        Linear::<2, 8, 16>::from_seed(42),
+        Linear::<2, 8>::from_seed(42),
         Tanh::<8> {},
-        Linear::<8, 1, 8>::from_seed(137)
+        Linear::<8, 1>::from_seed(137)
     );
     let input = Vector::from_data([1.0, 0.5]);
     let target = Vector::from_data([1.0]);
@@ -63,9 +63,9 @@ fn seq_training_step_decreases_loss() {
 #[test]
 fn seq_training_step_decreases_loss_leaky_relu() {
     let mut net = seq!(
-        Linear::<2, 8, 16>::from_seed(42),
+        Linear::<2, 8>::from_seed(42),
         LeakyReLU::<8>::new(0.01),
-        Linear::<8, 1, 8>::from_seed(137)
+        Linear::<8, 1>::from_seed(137)
     );
     let dataset = [
         ([0.0, 0.0], [0.0]),
@@ -112,9 +112,9 @@ fn seq_training_step_decreases_loss_leaky_relu() {
 #[test]
 fn grad_check_linear_tanh_linear() {
     let net = seq!(
-        Linear::<2, 4, 8>::from_seed(42),
+        Linear::<2, 4>::from_seed(42),
         Tanh::<4> {},
-        Linear::<4, 1, 4>::from_seed(99)
+        Linear::<4, 1>::from_seed(99)
     );
     let input = Vector::from_data([1.0, 0.5]);
     let target = Vector::from_data([1.0]);

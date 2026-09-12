@@ -17,21 +17,21 @@ fn test_gram_schmidt_2d() {
 
 #[test]
 fn test_qr_decomposition_simple() {
-    let mut a = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut a = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     a[(0, 0)] = 1.0;
     a[(0, 1)] = 1.0;
     a[(1, 0)] = 0.0;
     a[(1, 1)] = 1.0;
-    let (q, r) = qr_decomposition::<2, 2, 4, 4>(&a);
-    let qr: Tensor<2, 2, 4> = q.multiply(&r);
+    let (q, r) = qr_decomposition::<2, 2>(&a);
+    let qr: Tensor<2, 2> = q.multiply(&r);
     assert_eq!(qr, a);
-    let qtq: Tensor<2, 2, 4> = q.transposed().multiply(&q);
-    assert_eq!(qtq, Tensor::<2, 2, 4>::identity());
+    let qtq: Tensor<2, 2> = q.transposed().multiply(&q);
+    assert_eq!(qtq, Tensor::<2, 2>::identity());
 }
 
 #[test]
 fn test_solve_upper_triangular() {
-    let mut r = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut r = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     r[(0, 0)] = 2.0;
     r[(0, 1)] = 1.0;
     r[(1, 1)] = 1.0;
@@ -42,21 +42,21 @@ fn test_solve_upper_triangular() {
 
 #[test]
 fn test_solve_linear_system_2d() {
-    let mut a = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut a = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     a[(0, 0)] = 1.0;
     a[(0, 1)] = 1.0;
     a[(1, 0)] = 1.0;
     a[(1, 1)] = -1.0;
     let b = Vector::from_data([3.0, 1.0]);
-    let x = solve_linear_system::<2, 2, 4, 4>(&a, &b).unwrap();
+    let x = solve_linear_system::<2, 2>(&a, &b).unwrap();
     assert_eq!(x, Vector::from_data([2.0, 1.0]));
 }
 
 #[test]
 fn test_singular_system() {
-    let a = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let a = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     let b = Vector::from_data([1.0, 1.0]);
-    assert!(solve_linear_system::<2, 2, 4, 4>(&a, &b).is_none());
+    assert!(solve_linear_system::<2, 2>(&a, &b).is_none());
 }
 
 #[test]
@@ -69,21 +69,21 @@ fn test_gram_schmidt_dependent() {
 
 #[test]
 fn test_qr_3x2_matrix() {
-    let mut a = Tensor::<3, 2, 6>::new([0.0; 6]);
+    let mut a = Tensor::<3, 2>::new([[0.0; 2]; 3]);
     a[(0, 0)] = 12.0;
     a[(0, 1)] = -51.0;
     a[(1, 0)] = 6.0;
     a[(1, 1)] = 167.0;
     a[(2, 0)] = -4.0;
     a[(2, 1)] = 24.0;
-    let (q, r) = qr_decomposition::<3, 2, 6, 4>(&a);
-    let qr: Tensor<3, 2, 6> = q.multiply(&r);
+    let (q, r) = qr_decomposition::<3, 2>(&a);
+    let qr: Tensor<3, 2> = q.multiply(&r);
     assert_eq!(qr, a);
 }
 
 #[test]
 fn test_back_substitution_3d() {
-    let mut r = Tensor::<3, 3, 9>::new([0.0; 9]);
+    let mut r = Tensor::<3, 3>::new([[0.0; 3]; 3]);
     r[(0, 0)] = 1.0;
     r[(0, 1)] = 2.0;
     r[(0, 2)] = 3.0;
@@ -97,9 +97,9 @@ fn test_back_substitution_3d() {
 
 #[test]
 fn test_identity_solver() {
-    let a = Tensor::<3, 3, 9>::identity();
+    let a = Tensor::<3, 3>::identity();
     let b = Vector::from_data([1.0, 2.0, 3.0]);
-    let x = solve_linear_system::<3, 3, 9, 9>(&a, &b).unwrap();
+    let x = solve_linear_system::<3, 3>(&a, &b).unwrap();
     assert_eq!(x, b);
 }
 
@@ -113,7 +113,7 @@ fn test_orthogonal_projection_consistency() {
 
 #[test]
 fn test_svd_2x2() {
-    let mut a = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut a = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     a[(0, 0)] = 2.0;
     a[(0, 1)] = 1.0;
     a[(1, 0)] = 1.0;
@@ -124,7 +124,7 @@ fn test_svd_2x2() {
 
 #[test]
 fn test_svd_reconstruction_3x3() {
-    let mut a = Tensor::<3, 3, 9>::new([0.0; 9]);
+    let mut a = Tensor::<3, 3>::new([[0.0; 3]; 3]);
     a[(0, 0)] = 4.0;
     a[(0, 1)] = 2.0;
     a[(0, 2)] = 1.0;
@@ -134,24 +134,24 @@ fn test_svd_reconstruction_3x3() {
     a[(2, 0)] = 1.0;
     a[(2, 1)] = 1.0;
     a[(2, 2)] = 2.0;
-    let (u, sigma, v): (Tensor<3, 3, 9>, Vector<3>, Tensor<3, 3, 9>) = svd(&a);
-    let mut sigma_mat = Tensor::<3, 3, 9>::new([0.0; 9]);
+    let (u, sigma, v): (Tensor<3, 3>, Vector<3>, Tensor<3, 3>) = svd(&a);
+    let mut sigma_mat = Tensor::<3, 3>::new([[0.0; 3]; 3]);
     sigma_mat[(0, 0)] = sigma[0];
     sigma_mat[(1, 1)] = sigma[1];
     sigma_mat[(2, 2)] = sigma[2];
-    let u_sigma: Tensor<3, 3, 9> = u.multiply(&sigma_mat);
-    let reconstructed: Tensor<3, 3, 9> = u_sigma.multiply(&v.transposed());
+    let u_sigma: Tensor<3, 3> = u.multiply(&sigma_mat);
+    let reconstructed: Tensor<3, 3> = u_sigma.multiply(&v.transposed());
     assert_eq!(reconstructed, a);
-    let utu: Tensor<3, 3, 9> = u.transposed().multiply(&u);
-    assert_eq!(utu, Tensor::<3, 3, 9>::identity());
-    let vtv: Tensor<3, 3, 9> = v.transposed().multiply(&v);
-    assert_eq!(vtv, Tensor::<3, 3, 9>::identity());
+    let utu: Tensor<3, 3> = u.transposed().multiply(&u);
+    assert_eq!(utu, Tensor::<3, 3>::identity());
+    let vtv: Tensor<3, 3> = v.transposed().multiply(&v);
+    assert_eq!(vtv, Tensor::<3, 3>::identity());
 }
 
 #[test]
 fn test_svd_identity_3x3() {
-    let a = Tensor::<3, 3, 9>::identity();
-    let (_, sigma, _): (Tensor<3, 3, 9>, Vector<3>, Tensor<3, 3, 9>) = svd(&a);
+    let a = Tensor::<3, 3>::identity();
+    let (_, sigma, _): (Tensor<3, 3>, Vector<3>, Tensor<3, 3>) = svd(&a);
     for i in 0..3 {
         assert!((sigma[i] - 1.0).abs() < 1e-5, "sigma[{i}] = {}", sigma[i]);
     }
@@ -159,7 +159,7 @@ fn test_svd_identity_3x3() {
 
 #[test]
 fn test_svd_reconstruction_4x4() {
-    let mut a = Tensor::<4, 4, 16>::new([0.0; 16]);
+    let mut a = Tensor::<4, 4>::new([[0.0; 4]; 4]);
     a[(0, 0)] = 5.0;
     a[(0, 1)] = 1.0;
     a[(0, 2)] = 2.0;
@@ -176,34 +176,34 @@ fn test_svd_reconstruction_4x4() {
     a[(3, 1)] = 1.0;
     a[(3, 2)] = 0.0;
     a[(3, 3)] = 2.0;
-    let (u, sigma, v): (Tensor<4, 4, 16>, Vector<4>, Tensor<4, 4, 16>) = svd(&a);
-    let mut sigma_mat = Tensor::<4, 4, 16>::new([0.0; 16]);
+    let (u, sigma, v): (Tensor<4, 4>, Vector<4>, Tensor<4, 4>) = svd(&a);
+    let mut sigma_mat = Tensor::<4, 4>::new([[0.0; 4]; 4]);
     for i in 0..4 {
         sigma_mat[(i, i)] = sigma[i];
     }
-    let u_sigma: Tensor<4, 4, 16> = u.multiply(&sigma_mat);
-    let reconstructed: Tensor<4, 4, 16> = u_sigma.multiply(&v.transposed());
+    let u_sigma: Tensor<4, 4> = u.multiply(&sigma_mat);
+    let reconstructed: Tensor<4, 4> = u_sigma.multiply(&v.transposed());
     assert_eq!(reconstructed, a);
-    let utu: Tensor<4, 4, 16> = u.transposed().multiply(&u);
-    assert_eq!(utu, Tensor::<4, 4, 16>::identity());
-    let vtv: Tensor<4, 4, 16> = v.transposed().multiply(&v);
-    assert_eq!(vtv, Tensor::<4, 4, 16>::identity());
+    let utu: Tensor<4, 4> = u.transposed().multiply(&u);
+    assert_eq!(utu, Tensor::<4, 4>::identity());
+    let vtv: Tensor<4, 4> = v.transposed().multiply(&v);
+    assert_eq!(vtv, Tensor::<4, 4>::identity());
 }
 
 #[test]
 fn bench_matmul() {
-    let mut a2 = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut a2 = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     a2[(0, 0)] = 1.0;
     a2[(0, 1)] = 2.0;
     a2[(1, 0)] = 3.0;
     a2[(1, 1)] = 4.0;
-    let mut a3 = Tensor::<3, 3, 9>::new([0.0; 9]);
+    let mut a3 = Tensor::<3, 3>::new([[0.0; 3]; 3]);
     for i in 0..3 {
         for j in 0..3 {
             a3[(i, j)] = (i * 3 + j + 1) as Scalar;
         }
     }
-    let mut a4 = Tensor::<4, 4, 16>::new([0.0; 16]);
+    let mut a4 = Tensor::<4, 4>::new([[0.0; 4]; 4]);
     for i in 0..4 {
         for j in 0..4 {
             a4[(i, j)] = (i * 4 + j + 1) as Scalar;
@@ -212,7 +212,7 @@ fn bench_matmul() {
     let n = 100_000u32;
     let t = std::time::Instant::now();
     for _ in 0..n {
-        let _: Tensor<2, 2, 4> = a2.multiply(&a2);
+        let _: Tensor<2, 2> = a2.multiply(&a2);
     }
     println!(
         "matmul 2x2 x{n}: {:?} ({:.1}ns/iter)",
@@ -221,7 +221,7 @@ fn bench_matmul() {
     );
     let t = std::time::Instant::now();
     for _ in 0..n {
-        let _: Tensor<3, 3, 9> = a3.multiply(&a3);
+        let _: Tensor<3, 3> = a3.multiply(&a3);
     }
     println!(
         "matmul 3x3 x{n}: {:?} ({:.1}ns/iter)",
@@ -230,7 +230,7 @@ fn bench_matmul() {
     );
     let t = std::time::Instant::now();
     for _ in 0..n {
-        let _: Tensor<4, 4, 16> = a4.multiply(&a4);
+        let _: Tensor<4, 4> = a4.multiply(&a4);
     }
     println!(
         "matmul 4x4 x{n}: {:?} ({:.1}ns/iter)",
@@ -241,12 +241,12 @@ fn bench_matmul() {
 
 #[test]
 fn bench_svd() {
-    let mut a2 = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut a2 = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     a2[(0, 0)] = 2.0;
     a2[(0, 1)] = 1.0;
     a2[(1, 0)] = 1.0;
     a2[(1, 1)] = 2.0;
-    let mut a3 = Tensor::<3, 3, 9>::new([0.0; 9]);
+    let mut a3 = Tensor::<3, 3>::new([[0.0; 3]; 3]);
     a3[(0, 0)] = 4.0;
     a3[(0, 1)] = 2.0;
     a3[(0, 2)] = 1.0;
@@ -256,7 +256,7 @@ fn bench_svd() {
     a3[(2, 0)] = 1.0;
     a3[(2, 1)] = 1.0;
     a3[(2, 2)] = 2.0;
-    let mut a4 = Tensor::<4, 4, 16>::new([0.0; 16]);
+    let mut a4 = Tensor::<4, 4>::new([[0.0; 4]; 4]);
     a4[(0, 0)] = 5.0;
     a4[(0, 1)] = 1.0;
     a4[(0, 2)] = 2.0;
@@ -285,7 +285,7 @@ fn bench_svd() {
     );
     let t = std::time::Instant::now();
     for _ in 0..n {
-        let _: (Tensor<3, 3, 9>, Vector<3>, Tensor<3, 3, 9>) = svd(&a3);
+        let _: (Tensor<3, 3>, Vector<3>, Tensor<3, 3>) = svd(&a3);
     }
     println!(
         "svd 3x3 x{n}: {:?} ({:.1}ns/iter)",
@@ -294,7 +294,7 @@ fn bench_svd() {
     );
     let t = std::time::Instant::now();
     for _ in 0..n {
-        let _: (Tensor<4, 4, 16>, Vector<4>, Tensor<4, 4, 16>) = svd(&a4);
+        let _: (Tensor<4, 4>, Vector<4>, Tensor<4, 4>) = svd(&a4);
     }
     println!(
         "svd 4x4 x{n}: {:?} ({:.1}ns/iter)",
@@ -305,17 +305,17 @@ fn bench_svd() {
 
 #[test]
 fn test_svd_recomposition() {
-    let mut a = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut a = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     a[(0, 0)] = 3.0;
     a[(0, 1)] = 1.0;
     a[(1, 0)] = 1.0;
     a[(1, 1)] = 3.0;
     let (u, sigma, v) = svd_2x2(&a);
-    let mut s = Tensor::<2, 2, 4>::new([0.0; 4]);
+    let mut s = Tensor::<2, 2>::new([[0.0; 2]; 2]);
     s[(0, 0)] = sigma[0];
     s[(1, 1)] = sigma[1];
-    let u_s: Tensor<2, 2, 4> = u.multiply(&s);
-    let reconstructed: Tensor<2, 2, 4> = u_s.multiply(&v.transposed());
+    let u_s: Tensor<2, 2> = u.multiply(&s);
+    let reconstructed: Tensor<2, 2> = u_s.multiply(&v.transposed());
     assert_eq!(reconstructed, a);
 }
 

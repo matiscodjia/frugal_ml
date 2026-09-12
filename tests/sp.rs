@@ -7,13 +7,16 @@ fn test_cross_correlate2d_single_frame_two_filters() {
     // 1 2 3
     // 4 5 6
     // 7 8 9
-    let frames = Tensor4D::<1, 1, 3, 3, 9>::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+    let frames = Tensor4D::<1, 1, 3, 3>::new([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]]);
 
     // filter 0: diagonal (a + d), filter 1: sum of the patch
-    let filters = Tensor4D::<2, 1, 2, 2, 8>::new([1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
+    let filters = Tensor4D::<2, 1, 2, 2>::new([
+        [[[1.0, 0.0], [0.0, 1.0]]],
+        [[[1.0, 1.0], [1.0, 1.0]]],
+    ]);
 
     // each filter becomes an output channel
-    let out: Tensor4D<1, 2, 2, 2, 8> = cross_correlate2d(&frames, &filters, 1);
+    let out: Tensor4D<1, 2, 2, 2> = cross_correlate2d(&frames, &filters, 1);
     // diagonals: 1+5, 2+6, 4+8, 5+9
     assert_eq!(6.0, out.get(0, 0, 0, 0));
     assert_eq!(8.0, out.get(0, 0, 1, 0));
@@ -43,15 +46,15 @@ fn test_cross_correlate2d_sequence_matches_naive_correlation() {
     for i in 0..64 {
         data[i] = (i % 7) as Scalar - 3.0;
     }
-    let frames = Tensor4D::<N, C, H, W, 64>::new(data);
+    let frames = Tensor4D::<N, C, H, W>::from_vec(data.to_vec()).unwrap();
 
     let mut filter_data = [0.0; 24];
     for i in 0..24 {
         filter_data[i] = (i % 5) as Scalar - 2.0;
     }
-    let filters = Tensor4D::<K, C, KH, KW, 24>::new(filter_data);
+    let filters = Tensor4D::<K, C, KH, KW>::from_vec(filter_data.to_vec()).unwrap();
 
-    let out: Tensor4D<N, H_OUT, W_OUT, K, 54> = cross_correlate2d(&frames, &filters, 1);
+    let out: Tensor4D<N, H_OUT, W_OUT, K> = cross_correlate2d(&frames, &filters, 1);
 
     // reference: the convolution written out by hand, loop by loop
     for n in 0..N {
@@ -79,13 +82,16 @@ fn test_cross_correlate2d_sequence_matches_naive_correlation() {
 #[test]
 fn test_cross_correlate2d_stride_2() {
     // stride 2 on a 4x4: disjoint windows, 2x2 output
-    let frames = Tensor4D::<1, 1, 4, 4, 16>::new([
-        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
-    ]);
+    let frames = Tensor4D::<1, 1, 4, 4>::new([[[
+        [1.0, 2.0, 3.0, 4.0],
+        [5.0, 6.0, 7.0, 8.0],
+        [9.0, 10.0, 11.0, 12.0],
+        [13.0, 14.0, 15.0, 16.0],
+    ]]]);
 
-    let filters = Tensor4D::<1, 1, 2, 2, 4>::new([1.0, 1.0, 1.0, 1.0]);
+    let filters = Tensor4D::<1, 1, 2, 2>::new([[[[1.0, 1.0], [1.0, 1.0]]]]);
 
-    let out: Tensor4D<1, 2, 2, 1, 4> = cross_correlate2d(&frames, &filters, 2);
+    let out: Tensor4D<1, 2, 2, 1> = cross_correlate2d(&frames, &filters, 2);
     assert_eq!(14.0, out.get(0, 0, 0, 0)); // 1+2+5+6
     assert_eq!(22.0, out.get(0, 0, 1, 0)); // 3+4+7+8
     assert_eq!(46.0, out.get(0, 1, 0, 0)); // 9+10+13+14
@@ -100,14 +106,14 @@ fn test_cross_correlate2d_gaussian_and_sobel_bank() {
     for i in 0..32 {
         data[i] = (i + 1) as Scalar;
     }
-    let frames = Tensor4D::<2, 1, 4, 4, 32>::new(data);
+    let frames = Tensor4D::<2, 1, 4, 4>::from_vec(data.to_vec()).unwrap();
 
     // a single bank holding both kernels: channel 0 = blur, channel 1 = edge
-    let gaussian: Tensor3D<1, 3, 3, 9> = Gaussian3D::kernel();
-    let sobel_x: Tensor3D<1, 3, 3, 9> = Sobel3D::x();
-    let bank: Tensor4D<2, 1, 3, 3, 18> = filter_bank([&gaussian, &sobel_x]);
+    let gaussian: Tensor3D<1, 3, 3> = Gaussian3D::kernel();
+    let sobel_x: Tensor3D<1, 3, 3> = Sobel3D::x();
+    let bank: Tensor4D<2, 1, 3, 3> = filter_bank([&gaussian, &sobel_x]);
 
-    let out: Tensor4D<2, 2, 2, 2, 16> = cross_correlate2d(&frames, &bank, 1);
+    let out: Tensor4D<2, 2, 2, 2> = cross_correlate2d(&frames, &bank, 1);
 
     // unit-gain gaussian: on a (linear) ramp, it returns the window's
     // center pixel, i.e. f(i + 1, j + 1)
@@ -138,13 +144,13 @@ fn test_cross_correlate2d_bank_over_two_channels() {
     for i in 0..16 {
         data[i] = (i + 1) as Scalar;
     }
-    let frames = Tensor4D::<1, 2, 4, 4, 32>::new(data);
+    let frames = Tensor4D::<1, 2, 4, 4>::from_vec(data.to_vec()).unwrap();
 
-    let gaussian: Tensor3D<2, 3, 3, 18> = Gaussian3D::kernel();
-    let sobel_y: Tensor3D<2, 3, 3, 18> = Sobel3D::y();
-    let bank: Tensor4D<2, 2, 3, 3, 36> = filter_bank([&gaussian, &sobel_y]);
+    let gaussian: Tensor3D<2, 3, 3> = Gaussian3D::kernel();
+    let sobel_y: Tensor3D<2, 3, 3> = Sobel3D::y();
+    let bank: Tensor4D<2, 2, 3, 3> = filter_bank([&gaussian, &sobel_y]);
 
-    let out: Tensor4D<1, 2, 2, 2, 8> = cross_correlate2d(&frames, &bank, 1);
+    let out: Tensor4D<1, 2, 2, 2> = cross_correlate2d(&frames, &bank, 1);
 
     // gaussian: (center pixel + 0) / 2
     assert_eq!(3.0, out.get(0, 0, 0, 0));
@@ -161,13 +167,13 @@ fn test_cross_correlate2d_bank_over_two_channels() {
 #[test]
 fn test_gaussian_bank_preserves_constant_sequence() {
     // unit DC gain, channels included: a constant sequence comes out identical
-    let frames = Tensor4D::<1, 3, 3, 3, 27>::new([7.0; 27]);
+    let frames = Tensor4D::<1, 3, 3, 3>::new([[[[7.0; 3]; 3]; 3]; 1]);
 
-    let gaussian: Tensor3D<3, 3, 3, 27> = Gaussian3D::kernel();
-    let sobel_x: Tensor3D<3, 3, 3, 27> = Sobel3D::x();
-    let bank: Tensor4D<2, 3, 3, 3, 54> = filter_bank([&gaussian, &sobel_x]);
+    let gaussian: Tensor3D<3, 3, 3> = Gaussian3D::kernel();
+    let sobel_x: Tensor3D<3, 3, 3> = Sobel3D::x();
+    let bank: Tensor4D<2, 3, 3, 3> = filter_bank([&gaussian, &sobel_x]);
 
-    let out: Tensor4D<1, 1, 1, 2, 2> = cross_correlate2d(&frames, &bank, 1);
+    let out: Tensor4D<1, 1, 1, 2> = cross_correlate2d(&frames, &bank, 1);
     // 1/(16 * 3) isn't exact in binary: compare within epsilon
     assert!(fabs(7.0 - out.get(0, 0, 0, 0)) < 1e-5);
     // and a zero gradient on a flat image
