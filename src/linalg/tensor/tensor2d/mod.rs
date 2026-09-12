@@ -7,6 +7,7 @@ mod construction;
 mod indexing;
 mod ops;
 mod shape;
+mod stats;
 
 /// `ROWS`/`COLS` fix the shape for good: unlike [`TensorView`], nothing here
 /// mutates it, so there is no `shape`/stride state to carry at runtime.

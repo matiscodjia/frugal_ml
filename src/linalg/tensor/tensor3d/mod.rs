@@ -3,6 +3,7 @@ use crate::scalar::Scalar;
 
 mod access;
 mod construction;
+mod stats;
 
 /// `CHANNELS`/`ROWS`/`COLS` fix the shape for good: there is no runtime
 /// shape/stride state, no in-place transpose, nothing to keep in sync with

@@ -1,6 +1,6 @@
 use super::Tensor;
 use crate::linalg::storage::{Buffer, OwnedStorage, Storage};
-use crate::scalar::{fabs, Scalar};
+use crate::scalar::{fabs, pow, sqrt, Scalar};
 use core::ops::{Add, Div, Mul, Neg, Sub};
 
 impl<const ROWS: usize, const COLS: usize, S: OwnedStorage<[[Scalar; COLS]; ROWS]>> Add
@@ -79,5 +79,41 @@ impl<const ROWS: usize, const COLS: usize, S: Storage<[[Scalar; COLS]; ROWS]>> P
             }
         }
         true
+    }
+}
+impl<const ROWS: usize, const COLS: usize, S: Storage<[[Scalar; COLS]; ROWS]>>
+    Tensor<ROWS, COLS, S>
+{
+    pub fn pow(&self, n: f32) -> Self
+    where
+        S: OwnedStorage<[[Scalar; COLS]; ROWS]>,
+    {
+        let mut pow_tensor = Self::zeroed();
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                unsafe {
+                    let elem = self.get_unchecked(i, j);
+                    pow_tensor.set_unchecked(i, j, pow(elem, n));
+                }
+            }
+        }
+        pow_tensor
+    }
+    /// Elementwise square root, via `crate::scalar::sqrt` (`libm`) rather
+    /// than `f32`/`f64`'s inherent `sqrt`, which only exists once `std` is
+    /// linked and would otherwise break the bare-metal, `no_std` build.
+    pub fn sqrt(&self) -> Self
+    where
+        S: OwnedStorage<[[Scalar; COLS]; ROWS]>,
+    {
+        let mut sqrt_tensor = Self::zeroed();
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                unsafe {
+                    sqrt_tensor.set_unchecked(i, j, sqrt(self.get_unchecked(i, j)));
+                }
+            }
+        }
+        sqrt_tensor
     }
 }

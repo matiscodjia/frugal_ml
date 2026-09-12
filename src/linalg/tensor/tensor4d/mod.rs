@@ -4,6 +4,7 @@ use crate::scalar::Scalar;
 mod access;
 mod construction;
 mod shape;
+mod stats;
 
 /// The nested-array buffer shape backing a `Tensor4D<BATCHES, CHANNELS, ROWS,
 /// COLS, ..>`: named so cross-tensor generic bounds (`tensordot_3`,

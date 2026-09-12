@@ -4,6 +4,7 @@ use crate::scalar::Scalar;
 mod access;
 mod construction;
 mod rank6;
+mod stats;
 mod view;
 
 pub use rank6::Rank6;
