@@ -155,7 +155,10 @@ impl<
         S: OwnedStorage<Tensor6DBuffer<BATCHES, GROUPS, CHANNELS, DEPTH, ROWS, COLS>>,
     {
         let mut result = Self::zeroed();
-        result.data.as_flat_mut().copy_from_slice(self.data.as_flat());
+        result
+            .data
+            .as_flat_mut()
+            .copy_from_slice(self.data.as_flat());
         result
     }
 }

@@ -153,7 +153,10 @@ impl<
         S: OwnedStorage<Tensor4DBuffer<BATCHES, CHANNELS, ROWS, COLS>>,
     {
         let mut result = Self::zeroed();
-        result.data.as_flat_mut().copy_from_slice(self.data.as_flat());
+        result
+            .data
+            .as_flat_mut()
+            .copy_from_slice(self.data.as_flat());
         result
     }
 }
