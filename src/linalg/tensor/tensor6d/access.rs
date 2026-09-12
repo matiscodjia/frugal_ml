@@ -13,7 +13,9 @@ impl<
     > Tensor6D<BATCHES, GROUPS, CHANNELS, DEPTH, ROWS, COLS, S>
 {
     pub fn get(self: &Self, b: usize, g: usize, c: usize, d: usize, i: usize, j: usize) -> Scalar {
-        debug_assert!(b < BATCHES && g < GROUPS && c < CHANNELS && d < DEPTH && i < ROWS && j < COLS);
+        debug_assert!(
+            b < BATCHES && g < GROUPS && c < CHANNELS && d < DEPTH && i < ROWS && j < COLS
+        );
         let flat_index: usize = b * (GROUPS * CHANNELS * DEPTH * ROWS * COLS)
             + g * (CHANNELS * DEPTH * ROWS * COLS)
             + c * (DEPTH * ROWS * COLS)
@@ -35,7 +37,9 @@ impl<
     where
         S: StorageMut<Tensor6DBuffer<BATCHES, GROUPS, CHANNELS, DEPTH, ROWS, COLS>>,
     {
-        debug_assert!(b < BATCHES && g < GROUPS && c < CHANNELS && d < DEPTH && i < ROWS && j < COLS);
+        debug_assert!(
+            b < BATCHES && g < GROUPS && c < CHANNELS && d < DEPTH && i < ROWS && j < COLS
+        );
         let flat_index: usize = b * (GROUPS * CHANNELS * DEPTH * ROWS * COLS)
             + g * (CHANNELS * DEPTH * ROWS * COLS)
             + c * (DEPTH * ROWS * COLS)

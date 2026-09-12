@@ -530,10 +530,8 @@ fn test_im2col_view_feeds_tensordot_3() {
     let v = m.im2col_view::<2, 2, 2, 2>(1);
 
     // filter 0: diagonal (a + d), filter 1: sum of the patch
-    let filters = Tensor4D::<2, 1, 2, 2>::new([
-        [[[1.0, 0.0], [0.0, 1.0]]],
-        [[[1.0, 1.0], [1.0, 1.0]]],
-    ]);
+    let filters =
+        Tensor4D::<2, 1, 2, 2>::new([[[[1.0, 0.0], [0.0, 1.0]]], [[[1.0, 1.0], [1.0, 1.0]]]]);
 
     // the view is contracted as-is: no intermediate patch tensor
     let out: Tensor4D<1, 2, 2, 2> = tensordot_3(&v, &filters);
@@ -660,8 +658,7 @@ fn test_mixed_storage_operands() {
 
     let fil_stack = Tensor4D::<1, 1, 2, 2>::new([[[[1.0, 1.0], [1.0, 1.0]]]]);
 
-    let out: Tensor4D<1, 3, 3, 1> =
-        tensordot_3(&vid_heap.im2col_view::<3, 3, 2, 2>(1), &fil_stack);
+    let out: Tensor4D<1, 3, 3, 1> = tensordot_3(&vid_heap.im2col_view::<3, 3, 2, 2>(1), &fil_stack);
 
     assert_eq!(10.0, out.get(0, 0, 0, 0)); // 0+1+4+5
     assert_eq!(14.0, out.get(0, 0, 1, 0)); // 1+2+5+6

@@ -15,9 +15,9 @@ mod tensor3d;
 mod tensor4d;
 mod tensor6d;
 
-pub use tensor4d::{Tensor4D, Tensor4DBuffer};
 #[cfg(feature = "alloc")]
 pub use tensor4d::Tensor4DBoxed;
+pub use tensor4d::{Tensor4D, Tensor4DBuffer};
 
 pub use contraction::{tensordot_1, tensordot_2, tensordot_3};
 pub use tensor2d::{Tensor, TensorView, Vector};

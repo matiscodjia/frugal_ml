@@ -7,13 +7,12 @@ fn test_cross_correlate2d_single_frame_two_filters() {
     // 1 2 3
     // 4 5 6
     // 7 8 9
-    let frames = Tensor4D::<1, 1, 3, 3>::new([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]]);
+    let frames =
+        Tensor4D::<1, 1, 3, 3>::new([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]]);
 
     // filter 0: diagonal (a + d), filter 1: sum of the patch
-    let filters = Tensor4D::<2, 1, 2, 2>::new([
-        [[[1.0, 0.0], [0.0, 1.0]]],
-        [[[1.0, 1.0], [1.0, 1.0]]],
-    ]);
+    let filters =
+        Tensor4D::<2, 1, 2, 2>::new([[[[1.0, 0.0], [0.0, 1.0]]], [[[1.0, 1.0], [1.0, 1.0]]]]);
 
     // each filter becomes an output channel
     let out: Tensor4D<1, 2, 2, 2> = cross_correlate2d(&frames, &filters, 1);

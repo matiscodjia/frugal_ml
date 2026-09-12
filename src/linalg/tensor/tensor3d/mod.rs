@@ -13,7 +13,9 @@ pub struct Tensor3D<
     const CHANNELS: usize,
     const ROWS: usize,
     const COLS: usize,
-    S: Storage<[[[Scalar; COLS]; ROWS]; CHANNELS]> = StackStorage<[[[Scalar; COLS]; ROWS]; CHANNELS]>,
+    S: Storage<[[[Scalar; COLS]; ROWS]; CHANNELS]> = StackStorage<
+        [[[Scalar; COLS]; ROWS]; CHANNELS],
+    >,
 > {
     data: S,
 }
