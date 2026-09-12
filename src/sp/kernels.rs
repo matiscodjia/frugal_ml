@@ -19,11 +19,8 @@ type Taps3x3 = [Scalar; 9];
 /// span every input channel, because the contraction sums over them. Replicating
 /// the same 2D taps means the filter treats all channels alike: the C-channel
 /// response is the sum of the per-channel responses.
-fn replicate<const C: usize, const NUMEL: usize>(
-    taps: &Taps3x3,
-    gain: Scalar,
-) -> Tensor3D<C, 3, 3, NUMEL> {
-    let mut kernel = Tensor3D::<C, 3, 3, NUMEL>::zeroed();
+fn replicate<const C: usize>(taps: &Taps3x3, gain: Scalar) -> Tensor3D<C, 3, 3> {
+    let mut kernel = Tensor3D::<C, 3, 3>::zeroed();
     for c in 0..C {
         for i in 0..3 {
             for j in 0..3 {
@@ -48,11 +45,11 @@ impl Gaussian3D {
     /// use frugal_ml::sp::Gaussian3D;
     /// use frugal_ml::linalg::tensor::Tensor3D;
     ///
-    /// let k: Tensor3D<1, 3, 3, 9> = Gaussian3D::kernel();
+    /// let k: Tensor3D<1, 3, 3> = Gaussian3D::kernel();
     /// assert_eq!(0.25, k.get(0, 1, 1)); // 4/16
     /// ```
-    pub fn kernel<const C: usize, const NUMEL: usize>() -> Tensor3D<C, 3, 3, NUMEL> {
-        replicate::<C, NUMEL>(&Self::TAPS, 1.0 / (16.0 * C as Scalar))
+    pub fn kernel<const C: usize>() -> Tensor3D<C, 3, 3> {
+        replicate::<C>(&Self::TAPS, 1.0 / (16.0 * C as Scalar))
     }
 }
 
@@ -69,32 +66,25 @@ impl Sobel3D {
     const TAPS_Y: Taps3x3 = [-1.0, -2.0, -1.0, 0.0, 0.0, 0.0, 1.0, 2.0, 1.0];
 
     /// Horizontal gradient: responds to vertical edges.
-    pub fn x<const C: usize, const NUMEL: usize>() -> Tensor3D<C, 3, 3, NUMEL> {
-        replicate::<C, NUMEL>(&Self::TAPS_X, 1.0 / C as Scalar)
+    pub fn x<const C: usize>() -> Tensor3D<C, 3, 3> {
+        replicate::<C>(&Self::TAPS_X, 1.0 / C as Scalar)
     }
 
     /// Vertical gradient: responds to horizontal edges.
-    pub fn y<const C: usize, const NUMEL: usize>() -> Tensor3D<C, 3, 3, NUMEL> {
-        replicate::<C, NUMEL>(&Self::TAPS_Y, 1.0 / C as Scalar)
+    pub fn y<const C: usize>() -> Tensor3D<C, 3, 3> {
+        replicate::<C>(&Self::TAPS_Y, 1.0 / C as Scalar)
     }
 }
 
 /// Stacks K kernels of shape (C x KH x KW) into the (K x C x KH x KW) bank that
 /// `cross_correlate2d` expects: kernel `k` becomes output channel `k`.
 ///
-/// This is the one place the kernels are copied: `cross_correlate2d` then reads the bank in
-/// place. `NUMEL_BANK == K * C * KH * KW` is checked by `Tensor4D::new`.
-pub fn filter_bank<
-    const K: usize,
-    const C: usize,
-    const KH: usize,
-    const KW: usize,
-    const NUMEL_KERNEL: usize,
-    const NUMEL_BANK: usize,
->(
-    kernels: [&Tensor3D<C, KH, KW, NUMEL_KERNEL>; K],
-) -> Tensor4D<K, C, KH, KW, NUMEL_BANK> {
-    let mut bank = Tensor4D::<K, C, KH, KW, NUMEL_BANK>::zeroed();
+/// This is the one place the kernels are copied: `cross_correlate2d` then
+/// reads the bank in place.
+pub fn filter_bank<const K: usize, const C: usize, const KH: usize, const KW: usize>(
+    kernels: [&Tensor3D<C, KH, KW>; K],
+) -> Tensor4D<K, C, KH, KW> {
+    let mut bank = Tensor4D::<K, C, KH, KW>::zeroed();
     for k in 0..K {
         for c in 0..C {
             for i in 0..KH {

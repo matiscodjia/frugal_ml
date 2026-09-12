@@ -101,31 +101,30 @@ pub fn npy_to_arrays(entries: Vec<DirEntry>) -> std::io::Result<Vec<(String, Npy
 /// generics, only the storage location changes, not the static
 /// verification.
 ///
-/// `NUMEL` and `H_OUT`/`W_OUT` aren't derivable from the other parameters
-/// without `generic_const_exprs`, hence passing them explicitly; they are
-/// checked at compile time by `Tensor4D::new` and at runtime by
-/// `im2col_view`.
+/// `H_OUT`/`W_OUT` aren't derivable from the other parameters without
+/// `generic_const_exprs`, hence passing them explicitly; they are checked at
+/// runtime by `im2col_view`.
 macro_rules! bench_case {
     (
         $vid:expr, $fil:expr, $key:expr,
-        video: [$n:literal, $c:literal, $h:literal, $w:literal] = $numel_x:literal,
-        filters: [$k:literal, $kh:literal, $kw:literal] = $numel_f:literal,
-        output: [$h_out:literal, $w_out:literal] = $numel_y:literal,
+        video: [$n:literal, $c:literal, $h:literal, $w:literal],
+        filters: [$k:literal, $kh:literal, $kw:literal],
+        output: [$h_out:literal, $w_out:literal],
         stride: $stride:literal $(,)?
     ) => {{
-        let vid_tensor = Tensor4DBoxed::<$n, $c, $h, $w, $numel_x>::from_vec($vid.data)
+        let vid_tensor = Tensor4DBoxed::<$n, $c, $h, $w>::from_vec($vid.data)
             .unwrap_or_else(|_| panic!("video dimensions unexpected"));
-        let fil_tensor = Tensor4DBoxed::<$k, $c, $kh, $kw, $numel_f>::from_vec($fil.data)
+        let fil_tensor = Tensor4DBoxed::<$k, $c, $kh, $kw>::from_vec($fil.data)
             .unwrap_or_else(|_| panic!("filter dimensions unexpected"));
 
-        let result: Tensor4DBoxed<$n, $h_out, $w_out, $k, $numel_y> = tensordot_3(
+        let result: Tensor4DBoxed<$n, $h_out, $w_out, $k> = tensordot_3(
             &vid_tensor.im2col_view::<$h_out, $w_out, $kh, $kw>($stride),
             &fil_tensor,
         );
 
         let _ = write_npy(
             Path::new(&format!("output_{}.npy", $key)),
-            result.get_shape(),
+            &result.get_shape(),
             result.get_data(),
         );
     }};
@@ -137,127 +136,127 @@ pub fn compute_cross_corr_output_npy(couples: Vec<(String, NpyArray, NpyArray)>)
             // --- H/W variation ---
             ([1, 3, 32, 32], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 32, 32] = 3072,
-                filters: [2, 3, 3] = 54,
-                output: [30, 30] = 1800,
+                video: [1, 3, 32, 32],
+                filters: [2, 3, 3],
+                output: [30, 30],
                 stride: 1,
             ),
             ([1, 3, 64, 64], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 64, 64] = 12288,
-                filters: [2, 3, 3] = 54,
-                output: [62, 62] = 7688,
+                video: [1, 3, 64, 64],
+                filters: [2, 3, 3],
+                output: [62, 62],
                 stride: 1,
             ),
             ([1, 3, 128, 128], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 128, 128] = 49152,
-                filters: [2, 3, 3] = 54,
-                output: [126, 126] = 31752,
+                video: [1, 3, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([1, 3, 256, 256], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 256, 256] = 196608,
-                filters: [2, 3, 3] = 54,
-                output: [254, 254] = 129032,
+                video: [1, 3, 256, 256],
+                filters: [2, 3, 3],
+                output: [254, 254],
                 stride: 1,
             ),
             ([1, 3, 720, 720], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 720, 720] = 1555200,
-                filters: [2, 3, 3] = 54,
-                output: [718, 718] = 1031048,
+                video: [1, 3, 720, 720],
+                filters: [2, 3, 3],
+                output: [718, 718],
                 stride: 1,
             ),
 
             // --- N (batch) variation ---
             ([2, 3, 128, 128], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [2, 3, 128, 128] = 98304,
-                filters: [2, 3, 3] = 54,
-                output: [126, 126] = 63504,
+                video: [2, 3, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([4, 3, 128, 128], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [4, 3, 128, 128] = 196608,
-                filters: [2, 3, 3] = 54,
-                output: [126, 126] = 127008,
+                video: [4, 3, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([8, 3, 128, 128], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [8, 3, 128, 128] = 393216,
-                filters: [2, 3, 3] = 54,
-                output: [126, 126] = 254016,
+                video: [8, 3, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([16, 3, 128, 128], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [16, 3, 128, 128] = 786432,
-                filters: [2, 3, 3] = 54,
-                output: [126, 126] = 508032,
+                video: [16, 3, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([32, 3, 128, 128], [2, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [32, 3, 128, 128] = 1572864,
-                filters: [2, 3, 3] = 54,
-                output: [126, 126] = 1016064,
+                video: [32, 3, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
 
             // --- C (input channels) variation ---
             ([1, 1, 128, 128], [2, 1, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 1, 128, 128] = 16384,
-                filters: [2, 3, 3] = 18,
-                output: [126, 126] = 31752,
+                video: [1, 1, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([1, 8, 128, 128], [2, 8, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 8, 128, 128] = 131072,
-                filters: [2, 3, 3] = 144,
-                output: [126, 126] = 31752,
+                video: [1, 8, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([1, 16, 128, 128], [2, 16, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 16, 128, 128] = 262144,
-                filters: [2, 3, 3] = 288,
-                output: [126, 126] = 31752,
+                video: [1, 16, 128, 128],
+                filters: [2, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
 
             // --- K (filter count) variation ---
             ([1, 3, 128, 128], [1, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 128, 128] = 49152,
-                filters: [1, 3, 3] = 27,
-                output: [126, 126] = 15876,
+                video: [1, 3, 128, 128],
+                filters: [1, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([1, 3, 128, 128], [4, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 128, 128] = 49152,
-                filters: [4, 3, 3] = 108,
-                output: [126, 126] = 63504,
+                video: [1, 3, 128, 128],
+                filters: [4, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([1, 3, 128, 128], [8, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 128, 128] = 49152,
-                filters: [8, 3, 3] = 216,
-                output: [126, 126] = 127008,
+                video: [1, 3, 128, 128],
+                filters: [8, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
             ([1, 3, 128, 128], [16, 3, 3, 3]) => bench_case!(
                 vid, fil, key,
-                video: [1, 3, 128, 128] = 49152,
-                filters: [16, 3, 3] = 432,
-                output: [126, 126] = 254016,
+                video: [1, 3, 128, 128],
+                filters: [16, 3, 3],
+                output: [126, 126],
                 stride: 1,
             ),
 

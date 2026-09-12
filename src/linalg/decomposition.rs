@@ -38,14 +38,9 @@ pub fn gram_schmidt<const M: usize, const N: usize>(base: &[Vector<M>; N]) -> [V
 /// Returns (Q, R) where:
 /// - Q is an M x N orthogonal matrix.
 /// - R is an N x N upper triangular matrix.
-pub fn qr_decomposition<
-    const M: usize,
-    const N: usize,
-    const NUMEL_MN: usize,
-    const NUMEL_NN: usize,
->(
-    mat: &Tensor<M, N, NUMEL_MN>,
-) -> (Tensor<M, N, NUMEL_MN>, Tensor<N, N, NUMEL_NN>) {
+pub fn qr_decomposition<const M: usize, const N: usize>(
+    mat: &Tensor<M, N>,
+) -> (Tensor<M, N>, Tensor<N, N>) {
     // 1. Extract columns into a fixed-size array
     let mut cols = [Vector::<M>::from_data([0.0; M]); N];
     for j in 0..N {
@@ -56,11 +51,11 @@ pub fn qr_decomposition<
     let ortho_cols = gram_schmidt::<M, N>(&cols);
 
     // 3. Create Q from the orthonormal columns
-    let q: Tensor<M, N, NUMEL_MN> = Tensor::from_cols(ortho_cols);
+    let q: Tensor<M, N> = Tensor::from_cols(ortho_cols);
 
     // 4. Calculate R = Q^T * mat
     // Resulting R is N x N
-    let mut r = Tensor::<N, N, NUMEL_NN>::zeroed();
+    let mut r = Tensor::<N, N>::zeroed();
     r.matmul_accumulate(&q.transposed(), mat);
 
     (q, r)
@@ -69,8 +64,8 @@ pub fn qr_decomposition<
 /// Solves an upper triangular system Rx = b using back-substitution.
 ///
 /// R is an N x N matrix, b is a Vector of size N.
-pub fn solve_upper_triangular<const N: usize, const NUMEL_NN: usize>(
-    r: &Tensor<N, N, NUMEL_NN>,
+pub fn solve_upper_triangular<const N: usize>(
+    r: &Tensor<N, N>,
     b: &Vector<N>,
 ) -> Option<Vector<N>> {
     let mut x_data = [0.0; N];
@@ -97,16 +92,11 @@ pub fn solve_upper_triangular<const N: usize, const NUMEL_NN: usize>(
 /// Solves a linear system Ax = b using QR decomposition.
 ///
 /// A is M x N, b is size M, result x is size N.
-pub fn solve_linear_system<
-    const M: usize,
-    const N: usize,
-    const NUMEL_MN: usize,
-    const NUMEL_NN: usize,
->(
-    a: &Tensor<M, N, NUMEL_MN>,
+pub fn solve_linear_system<const M: usize, const N: usize>(
+    a: &Tensor<M, N>,
     b: &Vector<M>,
 ) -> Option<Vector<N>> {
-    let (q, r) = qr_decomposition::<M, N, NUMEL_MN, NUMEL_NN>(a);
+    let (q, r) = qr_decomposition::<M, N>(a);
 
     // Compute c = Q^T * b (Vector of size N)
     let mut c_data = [0.0; N];
@@ -120,10 +110,10 @@ pub fn solve_linear_system<
     solve_upper_triangular(&r, &c)
 }
 
-fn sort_svd<const M: usize, const N: usize, const NUMEL_MN: usize, const NUMEL_NN: usize>(
+fn sort_svd<const M: usize, const N: usize>(
     sigma: &mut Vector<N>,
-    u: &mut Tensor<M, N, NUMEL_MN>,
-    v: &mut Tensor<N, N, NUMEL_NN>,
+    u: &mut Tensor<M, N>,
+    v: &mut Tensor<N, N>,
 ) {
     for i in 0..N {
         let mut max_idx = i;
@@ -162,7 +152,7 @@ pub fn jacobi_rotation(p: Scalar, q: Scalar, d: Scalar) -> (Scalar, Scalar) {
     }
 }
 
-pub fn svd_2x2(mat: &Tensor<2, 2, 4>) -> (Tensor<2, 2, 4>, Vector<2>, Tensor<2, 2, 4>) {
+pub fn svd_2x2(mat: &Tensor<2, 2>) -> (Tensor<2, 2>, Vector<2>, Tensor<2, 2>) {
     let (a, b) = (mat.get_col(0).unwrap(), mat.get_col(1).unwrap());
     let p = a.dot(&a);
     let q = b.dot(&b);
@@ -184,8 +174,8 @@ pub fn svd_2x2(mat: &Tensor<2, 2, 4>) -> (Tensor<2, 2, 4>, Vector<2>, Tensor<2, 
         b_prime
     };
 
-    let u: Tensor<2, 2, 4> = Tensor::from_cols([u1, u2]);
-    let mut v = Tensor::<2, 2, 4>::zeroed();
+    let u: Tensor<2, 2> = Tensor::from_cols([u1, u2]);
+    let mut v = Tensor::<2, 2>::zeroed();
     v[(0, 0)] = cos;
     v[(0, 1)] = sin;
     v[(1, 0)] = -sin;
@@ -195,11 +185,11 @@ pub fn svd_2x2(mat: &Tensor<2, 2, 4>) -> (Tensor<2, 2, 4>, Vector<2>, Tensor<2, 
     (u, sigma, v)
 }
 
-pub fn svd<const M: usize, const N: usize, const NUMEL_MN: usize, const NUMEL_NN: usize>(
-    mat: &Tensor<M, N, NUMEL_MN>,
-) -> (Tensor<M, N, NUMEL_MN>, Vector<N>, Tensor<N, N, NUMEL_NN>) {
+pub fn svd<const M: usize, const N: usize>(
+    mat: &Tensor<M, N>,
+) -> (Tensor<M, N>, Vector<N>, Tensor<N, N>) {
     let mut b = *mat;
-    let mut v = Tensor::<N, N, NUMEL_NN>::identity();
+    let mut v = Tensor::<N, N>::identity();
     let max_iter = 100 * N * N;
     let mut iter = 0;
 
@@ -241,7 +231,7 @@ pub fn svd<const M: usize, const N: usize, const NUMEL_MN: usize, const NUMEL_NN
     }
 
     let mut sigma = Vector::<N>::from_data([0.0; N]);
-    let mut u = Tensor::<M, N, NUMEL_MN>::zeroed();
+    let mut u = Tensor::<M, N>::zeroed();
 
     for i in 0..N {
         let col = b.get_col(i).unwrap();

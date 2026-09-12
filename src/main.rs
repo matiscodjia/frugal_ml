@@ -1,4 +1,4 @@
 use frugal_ml::Tensor;
 fn main() {
-    let a = Tensor::<2, 2, 4>::new([1.0, 1.0, 1.0, 1.0]);
+    let a = Tensor::<2, 2>::new([[1.0, 1.0], [1.0, 1.0]]);
 }
