@@ -149,6 +149,8 @@ indirection, no dynamic dispatch.
 |---|---|
 | `Tensor<ROWS, COLS>` | the crate's one elementary structure: indexing, `+ - * /`, `multiply`/`multiply_unchecked` (matrix product), `transposed`, column extraction |
 | `Vector<N>` | `= Tensor<N, 1>`, still just a `Tensor`, with L1 / L2 / Linf norms, dot product, projection, Hadamard product |
+| `mean`/`variance`/`std`/`min`/`max` | numerically stable (`E[(X-E[X])²]`, not `E[X²]-E[X]²`, which cancels catastrophically far from zero); row/col-wise variants (`rows_mean`, `cols_variance`, ...) return a `Tensor` instead of a `Scalar`; generalized to `Tensor3D`/`Tensor4D`/`Tensor6D` |
+| `standardize`/`min_max_scale` | z-score / min-max normalization, in place or as a new tensor (`standardized`, `min_max_scaled`), from the tensor's own stats or externally supplied ones (`standardize_with`, `min_max_scale_with`); divisors floored by `STATS_EPSILON` (`1e-8`) so a degenerate (constant) tensor scales to a finite value instead of `NaN`/`inf` |
 | Gram-Schmidt | orthonormal basis from any set of vectors |
 | QR decomposition | `A = QR`, used for linear system solving |
 | Linear system solver | `Ax = b` via QR + back-substitution |
@@ -275,13 +277,19 @@ src/
 ├── scalar.rs: Scalar type alias (f32 default, f64 via --features f64)
 ├── linalg/
 │   ├── decomposition.rs: Gram-Schmidt, QR, SVD
-│   ├── storage.rs: Storage/Buffer traits (stack vs heap backing)
+│   ├── storage.rs: Buffer (recursive, no NUMEL), Storage/StorageMut/OwnedStorage,
+│   │               StackStorage (default) / HeapStorage (`alloc` feature)
 │   └── tensor/
-│       ├── tensor2d.rs: Tensor<ROWS,COLS>, TensorView, the Vector<N> alias
-│       ├── tensor3d.rs: Tensor3D
-│       ├── tensor4d.rs: Tensor4D, im2col_view
-│       ├── tensor6d.rs: Rank6 trait, Tensor6D, TensorView6D
-│       └── contraction.rs: tensordot_1/2/3
+│       ├── contraction.rs: tensordot_1/2/3
+│       ├── tensor2d/: Tensor<ROWS,COLS>, TensorView, the Vector<N> alias
+│       │   ├── access.rs, construction.rs, indexing.rs, shape.rs
+│       │   ├── algebra.rs: transposed, multiply, projection
+│       │   ├── ops.rs: `+ - * /`, `PartialEq`, `pow`, `sqrt`
+│       │   └── stats.rs: mean/variance/std/min/max, standardize, min_max_scale
+│       ├── tensor3d/: Tensor3D (access.rs, construction.rs, stats.rs)
+│       ├── tensor4d/: Tensor4D, im2col_view (access.rs, construction.rs, shape.rs, stats.rs)
+│       └── tensor6d/: Rank6 trait, Tensor6D, TensorView6D
+│           (access.rs, construction.rs, rank6.rs, view.rs, stats.rs)
 ├── sp/
 │   ├── correlate.rs: cross_correlate2d (fixed-kernel conv2d forward)
 │   ├── conv_streaming.rs: ConvStreaming, O(KH·W) RAM row-at-a-time convolution
@@ -308,6 +316,8 @@ src/
 
 tests/
 ├── tensors.rs: Tensor/Vector unit tests, tensordot equivalences
+├── tensor_stats_precision.rs: mean/variance/std/min/max precision and
+│                               standardize/min_max_scale correctness, all ranks
 ├── algorithms.rs: Gram-Schmidt/QR/SVD integration tests
 ├── autodiff.rs: integration tests, real API usage
 ├── sequential.rs: Then/seq! composition tests, gradient check
