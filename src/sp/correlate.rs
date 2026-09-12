@@ -1,8 +1,7 @@
 //! 2D cross-correlation over a batch of multi-channel frames.
 
 use crate::linalg::storage::{OwnedStorage, Storage};
-use crate::linalg::tensor::{tensordot_3, Tensor4D};
-use crate::scalar::Scalar;
+use crate::linalg::tensor::{tensordot_3, Tensor4D, Tensor4DBuffer};
 
 /// Cross-correlates a (N x C x H x W) sequence with K filters of shape
 /// (C x KH x KW), producing a (N x H_OUT x W_OUT x K) sequence: one new channel
@@ -24,10 +23,10 @@ use crate::scalar::Scalar;
 /// The window slides by `stride` in both directions. No padding: the output is
 /// the usual `(H - KH) / stride + 1` by `(W - KW) / stride + 1`.
 ///
-/// `H_OUT`, `W_OUT` and `NUMEL_Y` must come from the call site (deriving them
-/// from `stride` would need `generic_const_exprs`) and are checked by
-/// `im2col_view` and `Tensor4D::new`. Everything else is inferred from the
-/// operands, and the shared C, KH, KW are enforced by the signature.
+/// `H_OUT` and `W_OUT` must come from the call site (deriving them from
+/// `stride` would need `generic_const_exprs`) and are checked by
+/// `im2col_view`. Everything else is inferred from the operands, and the
+/// shared C, KH, KW are enforced by the signature.
 ///
 /// The patches are never materialised: `im2col_view` only remaps strides onto
 /// the input buffer, and `tensordot_3` contracts that view in place. Cost is
@@ -38,12 +37,12 @@ use crate::scalar::Scalar;
 /// use frugal_ml::sp::cross_correlate2d;
 ///
 /// // one 3x3 frame, single channel
-/// let frames = Tensor4D::<1, 1, 3, 3, 9>::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+/// let frames = Tensor4D::<1, 1, 3, 3>::new([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]]);
 ///
 /// // one 2x2 box filter
-/// let filters = Tensor4D::<1, 1, 2, 2, 4>::new([1.0, 1.0, 1.0, 1.0]);
+/// let filters = Tensor4D::<1, 1, 2, 2>::new([[[[1.0, 1.0], [1.0, 1.0]]]]);
 ///
-/// let out: Tensor4D<1, 2, 2, 1, 4> = cross_correlate2d(&frames, &filters, 1);
+/// let out: Tensor4D<1, 2, 2, 1> = cross_correlate2d(&frames, &filters, 1);
 /// assert_eq!(12.0, out.get(0, 0, 0, 0)); // 1+2+4+5
 /// ```
 pub fn cross_correlate2d<
@@ -56,21 +55,18 @@ pub fn cross_correlate2d<
     const KW: usize,
     const H_OUT: usize,
     const W_OUT: usize,
-    const NUMEL_X: usize,
-    const NUMEL_F: usize,
-    const NUMEL_Y: usize,
     SX,
     SF,
     SY,
 >(
-    sequence: &Tensor4D<N, C, H, W, NUMEL_X, SX>,
-    filters: &Tensor4D<K, C, KH, KW, NUMEL_F, SF>,
+    sequence: &Tensor4D<N, C, H, W, SX>,
+    filters: &Tensor4D<K, C, KH, KW, SF>,
     stride: usize,
-) -> Tensor4D<N, H_OUT, W_OUT, K, NUMEL_Y, SY>
+) -> Tensor4D<N, H_OUT, W_OUT, K, SY>
 where
-    SX: Storage<[Scalar; NUMEL_X]>,
-    SF: Storage<[Scalar; NUMEL_F]>,
-    SY: OwnedStorage<[Scalar; NUMEL_Y]>,
+    SX: Storage<Tensor4DBuffer<N, C, H, W>>,
+    SF: Storage<Tensor4DBuffer<K, C, KH, KW>>,
+    SY: OwnedStorage<Tensor4DBuffer<N, H_OUT, W_OUT, K>>,
 {
     // (N x C x H x W) seen as (N x H_OUT x W_OUT x C x KH x KW), no copy
     let patches = sequence.im2col_view::<H_OUT, W_OUT, KH, KW>(stride);

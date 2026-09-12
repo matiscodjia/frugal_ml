@@ -147,8 +147,10 @@ indirection, no dynamic dispatch.
 
 | | |
 |---|---|
-| `Tensor<ROWS, COLS, NUMEL>` | the crate's one elementary structure: indexing, `+ - * /`, `multiply`/`multiply_unchecked` (matrix product), `transposed`, column extraction |
-| `Vector<N>` | `= Tensor<N, 1, N>`, still just a `Tensor`, with L1 / L2 / Linf norms, dot product, projection, Hadamard product |
+| `Tensor<ROWS, COLS>` | the crate's one elementary structure: indexing, `+ - * /`, `multiply`/`multiply_unchecked` (matrix product), `transposed`, column extraction |
+| `Vector<N>` | `= Tensor<N, 1>`, still just a `Tensor`, with L1 / L2 / Linf norms, dot product, projection, Hadamard product |
+| `mean`/`variance`/`std`/`min`/`max` | numerically stable (`E[(X-E[X])²]`, not `E[X²]-E[X]²`, which cancels catastrophically far from zero); row/col-wise variants (`rows_mean`, `cols_variance`, ...) return a `Tensor` instead of a `Scalar`; generalized to `Tensor3D`/`Tensor4D`/`Tensor6D` |
+| `standardize`/`min_max_scale` | z-score / min-max normalization, in place or as a new tensor (`standardized`, `min_max_scaled`), from the tensor's own stats or externally supplied ones (`standardize_with`, `min_max_scale_with`); divisors floored by `STATS_EPSILON` (`1e-8`) so a degenerate (constant) tensor scales to a finite value instead of `NaN`/`inf` |
 | Gram-Schmidt | orthonormal basis from any set of vectors |
 | QR decomposition | `A = QR`, used for linear system solving |
 | Linear system solver | `Ax = b` via QR + back-substitution |
@@ -159,7 +161,7 @@ indirection, no dynamic dispatch.
 
 | | |
 |---|---|
-| `Linear<IN, OUT, NUMEL>` | fully connected layer, Xavier-uniform init via a Xorshift64 PRNG |
+| `Linear<IN, OUT>` | fully connected layer, Xavier-uniform init via a Xorshift64 PRNG |
 | `ReLU`, `LeakyReLU`, `Sigmoid`, `Tanh` | element-wise activations, diagonal-Jacobian backward |
 | `Softmax` | numerically stable (max subtraction), full dense-Jacobian VJP backward |
 | `mse`, `mae` | regression losses |
@@ -179,22 +181,21 @@ SGD's instability on non-stationary data becomes a real blocker.
 ### Initialization
 
 ```rust
-Linear::<IN, OUT, NUMEL>::from_seed(seed)    // Xavier uniform + Xorshift64 PRNG
-Linear::<IN, OUT, NUMEL>::from_weights(w, b) // load pretrained weights
-Linear::<IN, OUT, NUMEL>::zeros()            // explicit zero init
+Linear::<IN, OUT>::from_seed(seed)    // Xavier uniform + Xorshift64 PRNG
+Linear::<IN, OUT>::from_weights(w, b) // load pretrained weights
+Linear::<IN, OUT>::zeros()            // explicit zero init
 ```
 
-`NUMEL` is always `IN * OUT`. Rust has no stable way to derive it
-automatically from the other two ([`generic_const_exprs`][gce] is
-unstable), so it is spelled out at each call site, and checked: every
-`Tensor` carries a `const` item whose evaluation panics **at compile
-time** if `NUMEL != ROWS * COLS` (`src/linalg/tensor/tensor2d.rs`), a
-correctness guarantee about a compile-time constant, enforced by forcing
-the compiler to evaluate it, not a runtime `assert!`.
+Every tensor's backing buffer is a nested array (`[[Scalar; COLS]; ROWS]`
+for `Tensor`, one more level of nesting per rank), built recursively via
+the `Buffer` trait in `src/linalg/storage.rs`. Its element count falls out
+of the type itself, so there is no separate `NUMEL` const generic to spell
+out at each call site and nothing to verify against `ROWS * COLS`: a
+tensor whose shape doesn't match its buffer simply doesn't type-check.
 
 On MCU, pass your hardware RNG output as seed:
 ```rust
-Linear::<4, 8, 32>::from_seed(hal::rng::read())
+Linear::<4, 8>::from_seed(hal::rng::read())
 ```
 
 ---
@@ -245,7 +246,7 @@ here is the compile-time-graph engineering, not the mathematics:
 
 - Widrow, B., & Hoff, M. E. (1960). *Adaptive Switching Circuits.*
   IRE WESCON Convention Record. ADALINE and the LMS update rule;
-  `Linear<N,1,NUMEL>` + `mse` + `Sgd`, undecorated, **is** an LMS filter.
+  `Linear<N,1>` + `mse` + `Sgd`, undecorated, **is** an LMS filter.
 - Wengert, R. E. (1964). *A simple automatic derivative evaluation
   program.* Communications of the ACM, 7(8), 463-464. The tape/list
   this crate deliberately does not build at runtime.
@@ -265,7 +266,6 @@ here is the compile-time-graph engineering, not the mathematics:
 [wengert64]: https://dl.acm.org/doi/10.1145/355586.364791
 [griewank08]: https://epubs.siam.org/doi/book/10.1137/1.9780898717761
 [widrow60]: https://www-isl.stanford.edu/~widrow/papers/c1960adaptiveswitching.pdf
-[gce]: https://github.com/rust-lang/rust/issues/76560
 
 ---
 
@@ -277,13 +277,19 @@ src/
 ├── scalar.rs: Scalar type alias (f32 default, f64 via --features f64)
 ├── linalg/
 │   ├── decomposition.rs: Gram-Schmidt, QR, SVD
-│   ├── storage.rs: Storage/Buffer traits (stack vs heap backing)
+│   ├── storage.rs: Buffer (recursive, no NUMEL), Storage/StorageMut/OwnedStorage,
+│   │               StackStorage (default) / HeapStorage (`alloc` feature)
 │   └── tensor/
-│       ├── tensor2d.rs: Tensor<ROWS,COLS,NUMEL>, TensorView, the Vector<N> alias
-│       ├── tensor3d.rs: Tensor3D
-│       ├── tensor4d.rs: Tensor4D, im2col_view
-│       ├── tensor6d.rs: Rank6 trait, Tensor6D, TensorView6D
-│       └── contraction.rs: tensordot_1/2/3
+│       ├── contraction.rs: tensordot_1/2/3
+│       ├── tensor2d/: Tensor<ROWS,COLS>, TensorView, the Vector<N> alias
+│       │   ├── access.rs, construction.rs, indexing.rs, shape.rs
+│       │   ├── algebra.rs: transposed, multiply, projection
+│       │   ├── ops.rs: `+ - * /`, `PartialEq`, `pow`, `sqrt`
+│       │   └── stats.rs: mean/variance/std/min/max, standardize, min_max_scale
+│       ├── tensor3d/: Tensor3D (access.rs, construction.rs, stats.rs)
+│       ├── tensor4d/: Tensor4D, im2col_view (access.rs, construction.rs, shape.rs, stats.rs)
+│       └── tensor6d/: Rank6 trait, Tensor6D, TensorView6D
+│           (access.rs, construction.rs, rank6.rs, view.rs, stats.rs)
 ├── sp/
 │   ├── correlate.rs: cross_correlate2d (fixed-kernel conv2d forward)
 │   ├── conv_streaming.rs: ConvStreaming, O(KH·W) RAM row-at-a-time convolution
@@ -301,7 +307,7 @@ src/
     │                         custom layer, nothing else needs to name it directly)
     ├── grad_check.rs: GradChecker
     ├── layers/
-    │   ├── linear.rs: Linear<IN, OUT, NUMEL>
+    │   ├── linear.rs: Linear<IN, OUT>
     │   └── activations.rs: ReLU, LeakyReLU, Sigmoid, Tanh, Softmax
     ├── loss.rs: mse, mae, cross_entropy
     └── optim/
@@ -310,6 +316,8 @@ src/
 
 tests/
 ├── tensors.rs: Tensor/Vector unit tests, tensordot equivalences
+├── tensor_stats_precision.rs: mean/variance/std/min/max precision and
+│                               standardize/min_max_scale correctness, all ranks
 ├── algorithms.rs: Gram-Schmidt/QR/SVD integration tests
 ├── autodiff.rs: integration tests, real API usage
 ├── sequential.rs: Then/seq! composition tests, gradient check

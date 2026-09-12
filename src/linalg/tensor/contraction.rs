@@ -1,6 +1,6 @@
 use super::tensor2d::Tensor;
 use super::tensor3d::Tensor3D;
-use super::tensor4d::Tensor4D;
+use super::tensor4d::{Tensor4D, Tensor4DBuffer};
 use super::tensor6d::Rank6;
 use crate::linalg::storage::{OwnedStorage, Storage};
 use crate::scalar::Scalar;
@@ -8,23 +8,15 @@ use crate::scalar::Scalar;
 /// Contracts the last axis of `a` with the last axis of `b`:
 /// (M x K) . (N x K) -> (M x N).
 ///
-/// The shared dimension K is enforced by the signature, and `NUMEL_C == M * N`
-/// by `Tensor::new`, both at compile time. `b`'s contracted axis is last
-/// (not first) to match `tensordot_2`/`tensordot_3`'s convention: it's what
-/// lets `k` be walked contiguously on both operands below.
-pub fn tensordot_1<
-    const M: usize,
-    const K: usize,
-    const N: usize,
-    const NUMEL_A: usize,
-    const NUMEL_B: usize,
-    const NUMEL_C: usize,
->(
-    a: &Tensor<M, K, NUMEL_A>,
-    b: &Tensor<N, K, NUMEL_B>,
-) -> Tensor<M, N, NUMEL_C> {
-    assert!(a.shape == (M, K) && b.shape == (N, K));
-    let mut c = Tensor::<M, N, NUMEL_C>::zeroed();
+/// The shared dimension K is enforced by the signature, both at compile time.
+/// `b`'s contracted axis is last (not first) to match `tensordot_2`/
+/// `tensordot_3`'s convention: it's what lets `k` be walked contiguously on
+/// both operands below.
+pub fn tensordot_1<const M: usize, const K: usize, const N: usize>(
+    a: &Tensor<M, K>,
+    b: &Tensor<N, K>,
+) -> Tensor<M, N> {
+    let mut c = Tensor::<M, N>::zeroed();
     for i in 0..M {
         // SAFETY: i < M is guaranteed by the enclosing for loop's bounds.
         let a_base = unsafe { a.row_offset(i) };
@@ -53,25 +45,15 @@ pub fn tensordot_1<
 /// Contracts the last two axes of `a` with the last two axes of `b`:
 /// (M x K1 x K2) . (N x K1 x K2) -> (M x N).
 ///
-/// The shared dimensions K1 and K2 are enforced by the signature, and
-/// `NUMEL_C == M * N` by `Tensor::new`, both at compile time. `b`'s
-/// contracted axes are last (not first), matching `tensordot_3`'s
-/// convention: `k2` is walked contiguously on both operands below, same
-/// pattern as `tensordot_3`'s `ch`/`p`/`q`, one rank down.
-pub fn tensordot_2<
-    const M: usize,
-    const K1: usize,
-    const K2: usize,
-    const N: usize,
-    const NUMEL_A: usize,
-    const NUMEL_B: usize,
-    const NUMEL_C: usize,
->(
-    a: &Tensor3D<M, K1, K2, NUMEL_A>,
-    b: &Tensor3D<N, K1, K2, NUMEL_B>,
-) -> Tensor<M, N, NUMEL_C> {
-    assert!(a.shape == [M, K1, K2] && b.shape == [N, K1, K2]);
-    let mut c = Tensor::<M, N, NUMEL_C>::zeroed();
+/// The shared dimensions K1 and K2 are enforced by the signature, both at
+/// compile time. `b`'s contracted axes are last (not first), matching
+/// `tensordot_3`'s convention: `k2` is walked contiguously on both operands
+/// below, same pattern as `tensordot_3`'s `ch`/`p`/`q`, one rank down.
+pub fn tensordot_2<const M: usize, const K1: usize, const K2: usize, const N: usize>(
+    a: &Tensor3D<M, K1, K2>,
+    b: &Tensor3D<N, K1, K2>,
+) -> Tensor<M, N> {
+    let mut c = Tensor::<M, N>::zeroed();
     for i in 0..M {
         for j in 0..N {
             let mut sum: Scalar = 0.0;
@@ -107,8 +89,8 @@ pub fn tensordot_2<
 /// primitive; see [`crate::sp::cross_correlate2d`] for the im2col
 /// cross-correlation (conv2d forward pass) built on top of it.
 ///
-/// The shared dimensions C, KH and KW are enforced by the signature, and
-/// `NUMEL_C == D0 * D1 * D2 * K` by `Tensor4D::new`, both at compile time.
+/// The shared dimensions C, KH and KW are enforced by the signature, both at
+/// compile time.
 #[inline(never)]
 pub fn tensordot_3<
     A,
@@ -119,23 +101,20 @@ pub fn tensordot_3<
     const KH: usize,
     const KW: usize,
     const K: usize,
-    const NUMEL_B: usize,
-    const NUMEL_C: usize,
     SB,
     SC,
 >(
     a: &A,
-    b: &Tensor4D<K, C, KH, KW, NUMEL_B, SB>,
-) -> Tensor4D<N, H_OUT, W_OUT, K, NUMEL_C, SC>
+    b: &Tensor4D<K, C, KH, KW, SB>,
+) -> Tensor4D<N, H_OUT, W_OUT, K, SC>
 where
     A: Rank6<N, H_OUT, W_OUT, C, KH, KW>,
-    SB: Storage<[Scalar; NUMEL_B]>,
+    SB: Storage<Tensor4DBuffer<K, C, KH, KW>>,
     // The result can be as large as the input (1x718x718x2 ≈ 4 MB): its
     // storage needs to be choosable, or the overflow just comes back via the output.
-    SC: OwnedStorage<[Scalar; NUMEL_C]>,
+    SC: OwnedStorage<Tensor4DBuffer<N, H_OUT, W_OUT, K>>,
 {
-    assert!(a.shape() == [N, H_OUT, W_OUT, C, KH, KW] && b.shape == [K, C, KH, KW]);
-    let mut c = Tensor4D::<N, H_OUT, W_OUT, K, NUMEL_C, SC>::zeroed();
+    let mut c = Tensor4D::<N, H_OUT, W_OUT, K, SC>::zeroed();
     let b_row = b.get_raw_buffer();
     for n in 0..N {
         for i in 0..H_OUT {
@@ -149,9 +128,10 @@ where
                         let a_row = a.get_raw_buffer();
                         for k in 0..K {
                             // SAFETY: k < K, ch < C, p < KH are guaranteed by the enclosing
-                            // for loops' bounds, and b.shape == [K, C, KH, KW] is checked by
-                            // the assert! at the top of the function, same guarantees as
-                            // row_offset(n, c, i) on Tensor4D, a "row" here being (k, ch, p, ·).
+                            // for loops' bounds, and b: &Tensor4D<K, C, KH, KW, SB> is always
+                            // exactly that shape (no runtime shape state to diverge from it),
+                            // same guarantees as row_offset(n, c, i) on Tensor4D, a "row" here
+                            // being (k, ch, p, ·).
                             // Hoisted out of the `q` loop: it used to be recomputed for every
                             // (q, k) in the previous version (a 4-term flat index via
                             // `get_unchecked(k, ch, p, q)`), now computed once per k.

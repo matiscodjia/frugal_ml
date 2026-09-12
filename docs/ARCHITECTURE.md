@@ -14,8 +14,8 @@ pub trait Params {
 ```
 
 No methods. One associated type. Every trainable type answers this
-question once: `Linear<IN,OUT,NUMEL>` says `type Gradients =
-LinearGrads<IN,OUT,NUMEL>`; a stateless activation says `type Gradients =
+question once: `Linear<IN,OUT>` says `type Gradients =
+LinearGrads<IN,OUT>`; a stateless activation says `type Gradients =
 ()`. `Params` is deliberately *not* re-exported from the crate root:
 grep the whole codebase and the only places it is named are the `impl
 Params for X` blocks that provide the answer. Nothing consumes it

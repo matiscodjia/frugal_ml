@@ -2,16 +2,16 @@
 //! `cross_correlate2d` need (`H_OUT`, `W_OUT`, `NUMEL_X`, `NUMEL_F`, `NUMEL_Y`)
 //! from the handful of numbers that actually change when you swap
 //! resolutions. Without it, changing one resolution means recomputing and
-//! retyping those constants by hand at every `Tensor4D<...>` call site that
-//! touches the frame, the im2col view and the output; this macro shrinks
-//! that to one call site.
+//! retyping those constants by hand at every flat-array literal (`[0.0;
+//! ..]`) that seeds the frame, the im2col view and the output; this macro
+//! shrinks that to one call site.
 
 /// Generates a module of `usize` constants describing a convolution/
 /// cross-correlation shape: `H_OUT`, `W_OUT` (output spatial size, stride
 /// `stride`, no padding, same formula `im2col_view` checks internally) and
-/// `NUMEL_X`/`NUMEL_F`/`NUMEL_Y`, the flat element counts `Tensor4D::<.., NUMEL>`
-/// and `tensordot_3`/`cross_correlate2d` expect for the input sequence, the
-/// filter bank and the output.
+/// `NUMEL_X`/`NUMEL_F`/`NUMEL_Y`, the flat element counts a `[Scalar; ..]`
+/// literal needs to seed the input sequence, the filter bank and the output
+/// via `Tensor4D::new`.
 ///
 /// `N` (batch), `C` (channels) and `K` (filter count) default to `1` when
 /// omitted: the common case of exploring a single-frame, single-channel
@@ -47,10 +47,14 @@
 ///
 /// conv_shape!(frame96, H = 96, W = 96, KH = 3, KW = 3, stride = 1);
 ///
-/// let frame = Tensor4D::<{ frame96::N }, { frame96::C }, { frame96::H }, { frame96::W }, { frame96::NUMEL_X }>::new([0.0; frame96::NUMEL_X]);
-/// let filters = Tensor4D::<{ frame96::K }, { frame96::C }, { frame96::KH }, { frame96::KW }, { frame96::NUMEL_F }>::new([0.0; frame96::NUMEL_F]);
+/// let frame = Tensor4D::<{ frame96::N }, { frame96::C }, { frame96::H }, { frame96::W }>::from_vec(
+///     vec![0.0; frame96::NUMEL_X],
+/// ).unwrap();
+/// let filters = Tensor4D::<{ frame96::K }, { frame96::C }, { frame96::KH }, { frame96::KW }>::from_vec(
+///     vec![0.0; frame96::NUMEL_F],
+/// ).unwrap();
 ///
-/// let _out: Tensor4D<{ frame96::N }, { frame96::H_OUT }, { frame96::W_OUT }, { frame96::K }, { frame96::NUMEL_Y }> =
+/// let _out: Tensor4D<{ frame96::N }, { frame96::H_OUT }, { frame96::W_OUT }, { frame96::K }> =
 ///     tensordot_3(&frame.im2col_view::<{ frame96::H_OUT }, { frame96::W_OUT }, { frame96::KH }, { frame96::KW }>(frame96::STRIDE), &filters);
 /// ```
 #[macro_export]

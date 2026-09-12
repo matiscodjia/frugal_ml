@@ -1,7 +1,7 @@
 # Proposition 001 : Stockage générique (stack / heap / arena) pour tout `ferrite`
 
-**Statut :** proposition ; Phases 0, 1, 2 et 5 appliquées ; Phases 3 et 4 non implémentées
-**Date :** 2026-07-31, Phase 2 complétée le 2026-08-05
+**Statut :** proposition ; Phases 0, 1, 2, 3 et 5 appliquées ; Phase 4 non implémentée
+**Date :** 2026-07-31, Phase 2 complétée le 2026-08-05, Phase 3 complétée le 2026-09-12
 **Portée :** `src/linalg/*`, `src/sp/*`, `src/autodiff/*`, `src/io/*`, `Cargo.toml`
 
 ---
@@ -226,7 +226,40 @@ premier sur un fichier avant de dérouler les quatre types.
 
 ---
 
-## Phase 3 : `Vector` et `Matrix`
+## Phase 3 : `Vector` et `Matrix` ✅ (appliquée, élargie aux quatre rangs)
+
+> Fait, mais différemment de l'esquisse ci-dessous sur deux points. D'abord, il n'y a pas de type
+> `Matrix` séparé : c'est `Tensor` (rang 2, avec `Vector<N> = Tensor<N, 1>` en alias) qui reçoit le
+> traitement `Buffer` imbriqué décrit ici — et comme rien dans ce traitement n'est spécifique au
+> rang 2, il est appliqué uniformément à `Tensor3D`, `Tensor4D` (+ `Tensor4DBoxed`) et `Tensor6D`
+> aussi : `NUMEL` disparaît des quatre structures, plus seulement de l'une d'elles.
+>
+> Ensuite, **`new()` prend l'array imbriqué lui-même** (`[[Scalar; COLS]; ROWS]` pour `Tensor`, un
+> niveau de plus par rang), pas un `[Scalar; ROWS * COLS]` aplati : ce dernier est inexprimable
+> comme longueur de tableau sans `generic_const_exprs` (`ROWS * COLS` combine deux paramètres
+> génériques dans une position const, ce que le compilateur refuse même *via* un alias de type
+> nommé — testé, `E0747`/« generic parameters may not be used in const operations »). L'array
+> imbriqué, lui, n'utilise chaque paramètre qu'en position autonome (`[Scalar; COLS]` puis
+> `[..; ROWS]`), donc il compile, et la longueur reste vérifiée **à la compilation**, pas au
+> runtime : aucune régression sur la garantie que `new()` avait avec `NUMEL`.
+>
+> À rang 6 (`Tensor6D`), l'array imbriqué est six niveaux profond et personne ne le tape à la main —
+> et de fait personne n'en a besoin : `Tensor6D` n'existe dans le pipeline que comme sortie d'un
+> `im2col_view` ou construit élément par élément (`zeroed()` + `set()` en boucle, ou
+> `from_vec`/`load_slice`, tous deux restés plats et vérifiés au runtime). `new()` avec littéral
+> imbriqué reste la porte d'entrée *cohérente* pour ce rang, simplement rarement empruntée en
+> pratique ; `load_slice`/`from_vec` couvrent le cas « j'ai déjà un buffer plat ». Les tests qui
+> réinterprètent les mêmes données plates sous deux formes différentes (l'invariant flatten
+> `tensordot_2`/`tensordot_1`, `tensordot_3`/`tensordot_1`) utilisent `from_vec` pour cette raison
+> précise : le point de ces tests est justement que la même mémoire plate redécoupée différemment
+> donne le même résultat, donc un seul array imbriqué ne conviendrait à aucun des deux rangs à la
+> fois.
+>
+> Le reste tient : plus d'aplatissement de `NUMEL`, aucune structure de call site à changer côté
+> shape (`Tensor<ROWS, COLS>` remplace `Tensor<ROWS, COLS, NUMEL>` partout, `Linear<IN, OUT>` idem),
+> et `Vector::from_data([Scalar; N])` reste un array par valeur inchangé : un seul paramètre const
+> générique utilisé tel quel dans la position de taille, donc jamais concerné par la restriction
+> `generic_const_exprs`.
 
 - `Vector<N, S = StackStorage<[Scalar; N]>>`. `new([Scalar; N])` reste (constructeur ergonomique,
   utilisé partout dans `autodiff` et les tests) ; ajouter `from_slice`. Les opérateurs (`Add`,

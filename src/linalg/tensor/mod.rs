@@ -1,4 +1,5 @@
-//! Compile-time-shaped, stride-based tensors, one file per rank.
+//! Compile-time-shaped, stride-based tensors, one module per rank, each
+//! split by concern (construction, access, shape, algebra, ops, indexing).
 //!
 //! [`tensor2d`] and [`tensor3d`] hold the plain owned tensors and the 2D
 //! zero-copy view. [`tensor4d`] adds pluggable storage (stack or heap) and
@@ -14,11 +15,11 @@ mod tensor3d;
 mod tensor4d;
 mod tensor6d;
 
-pub use tensor4d::Tensor4D;
+pub use tensor4d::{Tensor4D, Tensor4DBuffer};
 #[cfg(feature = "alloc")]
 pub use tensor4d::Tensor4DBoxed;
 
 pub use contraction::{tensordot_1, tensordot_2, tensordot_3};
 pub use tensor2d::{Tensor, TensorView, Vector};
 pub use tensor3d::Tensor3D;
-pub use tensor6d::{Rank6, Tensor6D, TensorView6D};
+pub use tensor6d::{Rank6, Tensor6D, Tensor6DBuffer, TensorView6D};
