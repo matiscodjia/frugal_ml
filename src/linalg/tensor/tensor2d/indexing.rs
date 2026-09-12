@@ -15,8 +15,8 @@ impl<const N: usize, S: StorageMut<[[Scalar; 1]; N]>> IndexMut<usize> for Tensor
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, S: Storage<[[Scalar; COLS]; ROWS]>>
-    Index<(usize, usize)> for Tensor<ROWS, COLS, S>
+impl<const ROWS: usize, const COLS: usize, S: Storage<[[Scalar; COLS]; ROWS]>> Index<(usize, usize)>
+    for Tensor<ROWS, COLS, S>
 {
     type Output = Scalar;
     fn index(&self, (i, j): (usize, usize)) -> &Self::Output {
