@@ -14,10 +14,13 @@ pub fn gram_schmidt<const M: usize, const N: usize>(base: &[Vector<M>; N]) -> [V
         let v = &base[i];
         let mut q = *v; // Copy the original vector
 
-        // Subtract projections on all previously computed basis vectors
+        // Subtract projections on all previously computed basis vectors.
+        // Modified Gram-Schmidt: project the running `q` (already corrected
+        // by earlier subtractions), not the original `v` — this keeps the
+        // basis orthogonal for much longer under floating-point rounding.
         for j in 0..i {
             let u = &orthogonal_basis[j];
-            let proj = v.orthogonal_projection(u);
+            let proj = q.orthogonal_projection(u);
             q = q - proj;
         }
 
@@ -71,10 +74,19 @@ pub fn solve_upper_triangular<const N: usize>(
     let mut x_data = [0.0; N];
     let b_data = b.get_raw_buffer();
 
+    // Threshold scaled to R's magnitude: an absolute cutoff like 1e-10 is
+    // meaningless in f32 (EPSILON ~1.19e-7) and would let near-singular
+    // matrices slip through as if well-conditioned.
+    let mut max_diag: Scalar = 0.0;
+    for i in 0..N {
+        max_diag = max_diag.max(fabs(r[(i, i)]));
+    }
+    let threshold = EPSILON * max_diag.max(1.0);
+
     for i in (0..N).rev() {
         let diag = r[(i, i)];
 
-        if fabs(diag) < 1e-10 {
+        if fabs(diag) < threshold {
             return None; // Singular matrix
         }
 
@@ -109,7 +121,17 @@ pub fn solve_linear_system<const M: usize, const N: usize>(
     // Solve Rx = c
     solve_upper_triangular(&r, &c)
 }
-
+pub fn inverse<const N: usize>(matrix: &Tensor<N, N>) -> Option<Tensor<N, N>> {
+    let (q, r) = qr_decomposition(matrix);
+    let c = q.transposed();
+    let mut inverse = Tensor::<N, N>::zeroed();
+    for i in 0..N {
+        let q_col = c.get_col(i).unwrap();
+        let vec = solve_upper_triangular(&r, &q_col)?;
+        inverse.set_col(i, &vec);
+    }
+    Some(inverse)
+}
 fn sort_svd<const M: usize, const N: usize>(
     sigma: &mut Vector<N>,
     u: &mut Tensor<M, N>,
