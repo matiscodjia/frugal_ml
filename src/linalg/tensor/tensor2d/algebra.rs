@@ -60,6 +60,16 @@ impl<const N: usize, S: Storage<[[Scalar; 1]; N]>> Tensor<N, 1, S> {
     pub fn l2_norm(&self) -> Scalar {
         sqrt(self.dot(self))
     }
+    pub fn normalize(&self) -> Self
+    where
+        S: OwnedStorage<[[Scalar; 1]; N]> + Copy,
+    {
+        let norm = self.l2_norm();
+        if fabs(norm) < 1e-8 {
+            return Self::zeroed();
+        }
+        *self / norm
+    }
     pub fn l1_norm(&self) -> Scalar {
         let mut sum: Scalar = 0.0;
         for i in 0..N {
