@@ -727,6 +727,22 @@ fn test_tensor_matmul_accumulate() {
 }
 
 #[test]
+fn test_vector_normalize_unit_length() {
+    let v = Vector::from_data([3.0, 4.0]);
+    let n = v.normalize();
+    assert!((n.l2_norm() - 1.0).abs() < 1e-6);
+}
+
+#[test]
+fn test_vector_normalize_preserves_direction() {
+    let v = Vector::from_data([3.0, 4.0]);
+    let n = v.normalize();
+    let scale = v.l2_norm();
+    assert!((n[(0, 0)] * scale - v[(0, 0)]).abs() < 1e-6);
+    assert!((n[(1, 0)] * scale - v[(1, 0)]).abs() < 1e-6);
+}
+
+#[test]
 fn test_tensor_transposed() {
     let mut m = Tensor::<1, 2>::new([[0.0; 2]; 1]);
     m[(0, 0)] = 1.0;
