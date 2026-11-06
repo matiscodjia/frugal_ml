@@ -1,4 +1,4 @@
-"""Parses the RTT log of `adaline_anc` (in the companion `frugal_ml-embedded`
+"""Parses the RTT log of `adaline_anc` (in the companion `ferrite-embedded`
 firmware repo) and plots convergence + timing results.
 
 Usage:
