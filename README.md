@@ -148,7 +148,7 @@ indirection, no dynamic dispatch.
 | | |
 |---|---|
 | `Tensor<ROWS, COLS>` | the crate's one elementary structure: indexing, `+ - * /`, `multiply`/`multiply_unchecked` (matrix product), `transposed`, column extraction |
-| `Vector<N>` | `= Tensor<N, 1>`, still just a `Tensor`, with L1 / L2 / Linf norms, dot product, projection, Hadamard product |
+| `Vector<N>` | `= Tensor<N, 1>`, still just a `Tensor`, with L1 / L2 / Linf norms, dot product, projection, Hadamard product; `Vector<3>` adds the cross product |
 | `mean`/`variance`/`std`/`min`/`max` | numerically stable (`E[(X-E[X])²]`, not `E[X²]-E[X]²`, which cancels catastrophically far from zero); row/col-wise variants (`rows_mean`, `cols_variance`, ...) return a `Tensor` instead of a `Scalar`; generalized to `Tensor3D`/`Tensor4D`/`Tensor6D` |
 | `standardize`/`min_max_scale` | z-score / min-max normalization, in place or as a new tensor (`standardized`, `min_max_scaled`), from the tensor's own stats or externally supplied ones (`standardize_with`, `min_max_scale_with`); divisors floored by `STATS_EPSILON` (`1e-8`) so a degenerate (constant) tensor scales to a finite value instead of `NaN`/`inf` |
 | Gram-Schmidt | orthonormal basis from any set of vectors |
