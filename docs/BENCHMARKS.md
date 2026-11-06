@@ -9,7 +9,10 @@ the computation it's timing, the same failure mode this project's own
 `compute.rs`/`regime_bench.rs` benches had already found and fixed with
 `core::hint::black_box` on inputs, applied consistently here too.
 
-Firmware source lives in the companion `frugal_ml-embedded` repository.
+Firmware source lives in the companion
+[`ferrite-embedded`](https://github.com/matiscodjia/ferrite-embedded) repository
+(one binary per experiment: `adaline_anc`, `mlp_train`, `mlp_bisect_*`,
+`scaling_bench`, ...).
 Analysis/plotting scripts live in [`benches/scripts/`](../benches/scripts/)
 in *this* repo, next to the host-side Rust benches.
 
