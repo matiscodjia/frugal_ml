@@ -116,3 +116,16 @@ impl<const N: usize, S: Storage<[[Scalar; 1]; N]>> Tensor<N, 1, S> {
         result
     }
 }
+
+/// Operations that only exist in three dimensions. Calling `cross` on a
+/// `Vector<4>` is a compile error, not a runtime panic.
+impl<S: Storage<[[Scalar; 1]; 3]>> Tensor<3, 1, S> {
+    /// Cross product `self × other`: orthogonal to both, with norm
+    /// `|self| |other| sin θ`, oriented by the right-hand rule
+    /// (`x̂ × ŷ = ẑ`).
+    pub fn cross(&self, other: &Self) -> Tensor<3, 1> {
+        let (a0, a1, a2) = (self.get(0, 0), self.get(1, 0), self.get(2, 0));
+        let (b0, b1, b2) = (other.get(0, 0), other.get(1, 0), other.get(2, 0));
+        Tensor::<3, 1>::from_data([a1 * b2 - a2 * b1, a2 * b0 - a0 * b2, a0 * b1 - a1 * b0])
+    }
+}

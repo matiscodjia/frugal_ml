@@ -885,3 +885,32 @@ fn test_vector_null_projection() {
         Vector::from_data([0.0, 0.0])
     );
 }
+
+#[test]
+fn test_cross_basis_follows_right_hand_rule() {
+    let x = Vector::<3>::from_data([1.0, 0.0, 0.0]);
+    let y = Vector::<3>::from_data([0.0, 1.0, 0.0]);
+    let z = Vector::<3>::from_data([0.0, 0.0, 1.0]);
+    let xy = x.cross(&y);
+    let yx = y.cross(&x);
+    for i in 0..3 {
+        assert_eq!(xy[i], z[i]);
+        assert_eq!(yx[i], -z[i]);
+    }
+}
+
+#[test]
+fn test_cross_is_orthogonal_with_sine_norm() {
+    let a = Vector::<3>::from_data([1.0, 2.0, 3.0]);
+    let b = Vector::<3>::from_data([-2.0, 0.5, 4.0]);
+    let c = a.cross(&b);
+    assert!(c.dot(&a).abs() < 1e-5);
+    assert!(c.dot(&b).abs() < 1e-5);
+    // |a × b|² + (a · b)² = |a|² |b|² (Lagrange's identity)
+    let lhs = c.dot(&c) + a.dot(&b) * a.dot(&b);
+    let rhs = a.dot(&a) * b.dot(&b);
+    assert!((lhs - rhs).abs() < 1e-3 * rhs);
+    // parallel vectors have a zero cross product
+    let zero = a.cross(&(a * 2.0));
+    assert!(zero.l2_norm() < 1e-5);
+}
